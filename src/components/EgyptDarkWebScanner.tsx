@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ShieldAlert, AlertTriangle, AlertCircle, Activity, Globe, Lock, Loader2, Key, Database, FileWarning, Mail, Bomb, Bug, Download } from 'lucide-react';
-import { io } from 'socket.io-client';
+import { ShieldAlert, AlertTriangle, AlertCircle, Activity, Lock, Loader2, Key, Database, FileWarning, Mail, Bomb, Bug, Download, MapPin } from 'lucide-react';
 import { logUserAction } from '../lib/audit';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
@@ -10,7 +9,7 @@ type Severity = 'CRITICAL' | 'HIGH' | 'MEDIUM';
 
 interface Threat {
   id: string;
-  timestamp: Date | string; // Handle serialized dates
+  timestamp: Date | string;
   type: string;
   target: string;
   severity: Severity;
@@ -19,32 +18,35 @@ interface Threat {
 
 const initialThreats: Threat[] = [
   {
-    id: '1',
-    timestamp: new Date(Date.now() - 1000 * 60 * 2), // 2 mins ago
+    id: 'eg-1',
+    timestamp: new Date(Date.now() - 1000 * 60 * 3),
     type: 'Credential Leak',
-    target: 'Telecom Provider',
+    target: 'Cairo Logistics Hub',
     severity: 'HIGH',
-    description: 'Compromised credentials verified matching corporate domain patterns.',
+    description: 'Employee credentials found in recent infostealer log dump on a Russian forum.',
   },
   {
-    id: '2',
-    timestamp: new Date(Date.now() - 1000 * 60 * 5),
-    type: 'Ransomware Sighting',
-    target: 'Healthcare Org',
+    id: 'eg-2',
+    timestamp: new Date(Date.now() - 1000 * 60 * 12),
+    type: 'Ransomware Mention',
+    target: 'Egypt Health Tech',
     severity: 'CRITICAL',
-    description: 'Threat actors seeking partners for imminent ransomware deployment.',
+    description: 'Threat actors seeking initial access broker for local healthcare provider.',
   },
   {
-    id: '3',
-    timestamp: new Date(Date.now() - 1000 * 60 * 15),
+    id: 'eg-3',
+    timestamp: new Date(Date.now() - 1000 * 60 * 45),
     type: 'Database Dump',
-    target: 'E-Commerce Platform',
+    target: 'Alexandria Retail Group',
     severity: 'MEDIUM',
-    description: 'Large database dump allegedly containing millions of user records published.',
+    description: 'Alleged customer database listing posted to popular breach forum.',
   }
 ];
 
-export default function LiveThreatFeed() {
+const egTargets = ['Bank of Cairo', 'Nile Telecommunications', 'Giza Industrial Corp', 'Suez Maritime', 'EgyPharma Group', 'Luxor Hospitality'];
+const egTypes = ['Credential Leak', 'Ransomware Mention', 'Database Dump', 'Source Code Leak', 'Phishing Domain'];
+
+export default function EgyptDarkWebScanner() {
   const [threats, setThreats] = useState<Threat[]>(initialThreats);
   const [isPaused, setIsPaused] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
@@ -55,67 +57,35 @@ export default function LiveThreatFeed() {
   const isAnalystOrAdmin = profile?.role === 'Admin' || profile?.role === 'Analyst';
 
   useEffect(() => {
-    // Connect to WebSocket server running on same origin
-    const socket = io();
+    if (isPaused) return;
 
-    socket.on('connect', () => {
-      console.log('Connected to Threat Feed WebSocket stream');
-    });
-
-    socket.on('scanning_threat', () => {
-      if (isPaused) return;
+    const interval = setInterval(() => {
+      // Simulate real-time scanning delay
       setIsScanning(true);
-    });
-
-    socket.on('new_threat', (threat: Threat) => {
-      if (isPaused) return;
       
-      const parsedThreat = { ...threat, timestamp: new Date(threat.timestamp) };
-      
-      setThreats(prev => {
-        const newThreats = [parsedThreat, ...prev];
-        return newThreats.slice(0, 15); // Keep last 15
-      });
-      
-      setIsScanning(false);
+      setTimeout(() => {
+        setIsScanning(false);
+        // 30% chance to find a new threat during this cycle
+        if (Math.random() > 0.7) {
+          const newThreat: Threat = {
+            id: `eg-${Date.now()}`,
+            timestamp: new Date(),
+            type: egTypes[Math.floor(Math.random() * egTypes.length)],
+            target: egTargets[Math.floor(Math.random() * egTargets.length)],
+            severity: Math.random() > 0.8 ? 'CRITICAL' : Math.random() > 0.5 ? 'HIGH' : 'MEDIUM',
+            description: 'Automated Dark Web crawler identified potential compromised assets tied to Egyptian infrastructure.',
+          };
 
-      // Trigger realtime toast notification
-      const isCritical = threat.severity === 'CRITICAL';
-      toast.custom(
-        (t) => (
-          <div className={`${t.visible ? 'animate-enter' : 'animate-leave'} max-w-sm w-full bg-[#050505] shadow-lg rounded-lg pointer-events-auto flex ring-1 ${isCritical ? 'ring-red-500/50' : 'ring-cyan/30'}`}>
-            <div className="flex-1 w-0 p-4">
-              <div className="flex items-start">
-                <div className="flex-shrink-0 pt-0.5">
-                  {isCritical ? <ShieldAlert className="h-6 w-6 text-red-500" /> : <Activity className="h-6 w-6 text-cyan" />}
-                </div>
-                <div className="ml-3 flex-1">
-                  <p className="text-sm font-medium text-white">
-                    New {threat.severity} Threat Detected
-                  </p>
-                  <p className="mt-1 text-sm text-neutral-400">
-                    {threat.type} impacting <span className="text-white">{threat.target}</span>.
-                  </p>
-                </div>
-              </div>
-            </div>
-            <div className="flex border-l border-white/10">
-              <button
-                onClick={() => toast.dismiss(t.id)}
-                className="w-full border border-transparent rounded-none rounded-r-lg p-4 flex items-center justify-center text-sm font-medium text-cyan hover:text-cyan/80 focus:outline-none"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        ),
-        { duration: 5000 }
-      );
-    });
+          setThreats(prev => [newThreat, ...prev].slice(0, 15));
+          
+          if (newThreat.severity === 'CRITICAL') {
+            toast.error(`Critical threat detected for ${newThreat.target}!`);
+          }
+        }
+      }, 2000);
+    }, 8000);
 
-    return () => {
-      socket.disconnect();
-    };
+    return () => clearInterval(interval);
   }, [isPaused]);
 
   const getSeverityColor = (severity: Severity) => {
@@ -136,11 +106,11 @@ export default function LiveThreatFeed() {
 
   const getThreatTypeIcon = (type: string) => {
     const lowerType = type.toLowerCase();
-    if (lowerType.includes('credential') || lowerType.includes('password')) return <Key className="w-3.5 h-3.5 text-neutral-400" />;
-    if (lowerType.includes('database') || lowerType.includes('dump')) return <Database className="w-3.5 h-3.5 text-neutral-400" />;
-    if (lowerType.includes('ransomware') || lowerType.includes('malware')) return <Bomb className="w-3.5 h-3.5 text-neutral-400" />;
-    if (lowerType.includes('phishing') || lowerType.includes('domain')) return <Mail className="w-3.5 h-3.5 text-neutral-400" />;
-    if (lowerType.includes('vulnerability') || lowerType.includes('cve') || lowerType.includes('exploit')) return <Bug className="w-3.5 h-3.5 text-neutral-400" />;
+    if (lowerType.includes('credential')) return <Key className="w-3.5 h-3.5 text-neutral-400" />;
+    if (lowerType.includes('database')) return <Database className="w-3.5 h-3.5 text-neutral-400" />;
+    if (lowerType.includes('ransomware')) return <Bomb className="w-3.5 h-3.5 text-neutral-400" />;
+    if (lowerType.includes('phishing')) return <Mail className="w-3.5 h-3.5 text-neutral-400" />;
+    if (lowerType.includes('source code')) return <Bug className="w-3.5 h-3.5 text-neutral-400" />;
     return <FileWarning className="w-3.5 h-3.5 text-neutral-400" />;
   };
 
@@ -153,7 +123,6 @@ export default function LiveThreatFeed() {
     return `${Math.floor(mins / 60)}h ago`;
   };
 
-  // Re-render times every second to update "Xs ago" text
   const [, setTick] = useState(0);
   useEffect(() => {
     const timer = setInterval(() => setTick(t => t + 1), 1000);
@@ -200,47 +169,47 @@ export default function LiveThreatFeed() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', `egysafe_threat_feed_${new Date().toISOString().split('T')[0]}.csv`);
+    link.setAttribute('download', `national_egypt_threats_${new Date().toISOString().split('T')[0]}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    toast.success("Threat feed exported to CSV");
+    toast.success("National threat feed exported to CSV");
     
     // Log the export action asynchronously
-    logUserAction('Data Export', `Exported Global Threat Feed Data (${filteredThreats.length} records)`);
+    logUserAction('Data Export', `Exported Regional Threat Data (${filteredThreats.length} records)`);
   };
 
   return (
-    <section id="live-threat-feed" className="py-24 bg-black relative border-b border-white/5">
-      <div className="absolute inset-0 bg-grid-pattern opacity-30 z-0"></div>
+    <section id="egypt-dark-web-scanner" className="py-24 bg-[#050505] relative border-b border-white/5">
+      <div className="absolute inset-0 bg-noise opacity-10 pointer-events-none"></div>
       
-      <div className="max-w-7xl mx-auto px-6 relative z-10 flex flex-col lg:flex-row gap-12 items-start">
+      <div className="max-w-7xl mx-auto px-6 relative z-10 flex flex-col lg:flex-row-reverse gap-12 items-start">
         
         {/* Header & Info */}
         <div className="lg:w-1/3 sticky top-32">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-cyan/10 border border-cyan/20 text-cyan text-xs font-bold tracking-widest uppercase mb-6">
-            <Activity className="w-3.5 h-3.5" />
-            Live Intelligence
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-red/10 border border-red/20 text-red text-xs font-bold tracking-widest uppercase mb-6">
+            <MapPin className="w-3.5 h-3.5" />
+            National Intelligence
           </div>
           <h2 className="text-[clamp(1.5rem,3.5vw,2.5rem)] font-bold mb-4 text-black dark:text-white leading-tight">
-            Global Dark Web <br /><span className="text-cyan">Threat Feed</span>
+            Egypt Regional <br /><span className="text-red">Dark Web Scanner</span>
           </h2>
           <p className="text-neutral-600 dark:text-neutral-400 mb-8 leading-relaxed">
-            Our automated crawlers are constantly indexing hacker forums, Telegram channels, and zero-day marketplaces. Watch live as our AI detects and categorizes new external risks in real-time.
+            Delivering hyper-focused intelligence tracking mentions of Egyptian enterprises, government bodies, and infrastructure across Tor networks, I2P, and unauthorized credential marketplaces.
           </p>
           
-          <div className="flex items-center gap-4 border border-black/10 dark:border-white/10 rounded-xl p-4 bg-gray-50 dark:bg-[#0A0A0A]">
-            <div className="w-12 h-12 rounded-full bg-black/5 dark:bg-white/5 flex items-center justify-center relative">
-              <span className="absolute inset-0 rounded-full border border-cyan animate-ping opacity-20"></span>
-              <Globe className="w-5 h-5 text-cyan" />
+          <div className="flex items-center gap-4 border border-black/10 dark:border-white/10 rounded-xl p-4 bg-white dark:bg-[#0A0A0A] shadow-lg">
+            <div className="w-12 h-12 rounded-full bg-red/10 flex items-center justify-center relative">
+              <span className="absolute inset-0 rounded-full border border-red animate-ping opacity-20"></span>
+              <Activity className="w-5 h-5 text-red" />
             </div>
             <div>
               <div className="font-bold text-black dark:text-white flex items-center gap-2">
                 Scanner Status
-                <span className={`w-2 h-2 rounded-full ${isPaused ? 'bg-yellow-500' : 'bg-green-500 animate-pulse'}`}></span>
+                <span className={`w-2 h-2 rounded-full ${isPaused ? 'bg-yellow-500' : 'bg-red animate-pulse'}`}></span>
               </div>
               <div className="text-sm text-neutral-500">
-                {isPaused ? 'Feed Paused' : 'Monitoring 12,450+ sources alive'}
+                {isPaused ? 'Feed Paused' : 'Monitoring regional threat actors'}
               </div>
             </div>
           </div>
@@ -249,29 +218,27 @@ export default function LiveThreatFeed() {
             <button 
               onClick={() => {
                 if (!isAnalystOrAdmin) {
-                  toast.error('You must be an Analyst or Admin to control the live scanner.');
+                  toast.error('You must be an Analyst or Admin to control the regional scanner.');
                   return;
                 }
                 setIsPaused(!isPaused);
               }}
-              aria-label={isPaused ? "Resume Live Feed" : "Pause Live Feed"}
-              aria-pressed={isPaused}
-              className="text-sm font-medium text-cyan hover:text-cyan/80 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan rounded"
+              className="text-sm font-medium text-red hover:text-red/80 transition-colors focus:outline-none rounded"
             >
-              {isPaused ? '▶ Resume Live Feed' : '⏸ Pause Live Feed'}
+              {isPaused ? '▶ Resume Scanning' : '⏸ Pause Scanning'}
             </button>
             <button
               onClick={exportToCSV}
-              className="inline-flex items-center gap-1.5 text-sm font-medium text-neutral-500 hover:text-black dark:hover:text-white transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan rounded"
+              className="inline-flex items-center gap-1.5 text-sm font-medium text-neutral-500 hover:text-black dark:hover:text-white transition-colors focus:outline-none rounded"
             >
-              <Download className="w-4 h-4" /> Export CSV
+              <Download className="w-4 h-4" /> Export Regional Data
             </button>
           </div>
         </div>
 
         {/* Live Feed Container */}
         <div className="lg:w-2/3 w-full">
-          <div className="cyber-glass-card shadow-2xl">
+          <div className="cyber-glass-card shadow-2xl relative">
             
             {/* Window Controls & Filters */}
             <div className="bg-[#111] border-b border-white/5">
@@ -284,7 +251,7 @@ export default function LiveThreatFeed() {
                   </div>
                   <div className="text-xs font-mono text-neutral-500 flex items-center gap-2">
                     <Lock className="w-3 h-3" />
-                    <span className="hidden sm:inline">terminal.egysafe.darkweb_monitor</span>
+                    <span className="hidden sm:inline">eg_intel_stream.sh</span>
                   </div>
                 </div>
                 
@@ -296,7 +263,7 @@ export default function LiveThreatFeed() {
                       onClick={() => setActiveTypeFilter('ALL')}
                       className={`whitespace-nowrap px-3 py-1.5 rounded-full text-[10px] font-bold tracking-widest uppercase transition-all duration-300 border shrink-0 ${
                         activeTypeFilter === 'ALL'
-                          ? 'bg-cyan/10 border-cyan/30 text-cyan shadow-[0_0_15px_rgba(0,194,255,0.15)]'
+                          ? 'bg-red/10 border-red/30 text-red shadow-[0_0_15px_rgba(255,0,0,0.15)]'
                           : 'border-white/5 bg-white/5 text-neutral-400 hover:text-white hover:bg-white/10 hover:border-white/10'
                       }`}
                     >
@@ -308,7 +275,7 @@ export default function LiveThreatFeed() {
                         onClick={() => setActiveTypeFilter(type)}
                         className={`whitespace-nowrap px-3 py-1.5 rounded-full text-[10px] font-bold tracking-widest uppercase transition-all duration-300 border shrink-0 ${
                           activeTypeFilter === type
-                            ? 'bg-cyan/10 border-cyan/30 text-cyan shadow-[0_0_15px_rgba(0,194,255,0.15)]'
+                            ? 'bg-red/10 border-red/30 text-red shadow-[0_0_15px_rgba(255,0,0,0.15)]'
                             : 'border-white/5 bg-white/5 text-neutral-400 hover:text-white hover:bg-white/10 hover:border-white/10'
                         }`}
                       >
@@ -344,7 +311,7 @@ export default function LiveThreatFeed() {
             </div>
 
             {/* Feed List */}
-            <div aria-live="polite" aria-atomic="false" className="p-4 h-[500px] overflow-y-auto no-scrollbar relative flex flex-col gap-3 font-mono">
+            <div aria-live="polite" className="p-4 h-[500px] overflow-y-auto no-scrollbar relative flex flex-col gap-3 font-mono">
               <AnimatePresence initial={false}>
                 {isScanning && (
                   <motion.div
@@ -353,40 +320,32 @@ export default function LiveThreatFeed() {
                     animate={{ opacity: 1, height: 'auto', paddingTop: '1rem', paddingBottom: '1rem', scale: 1 }}
                     exit={{ opacity: 0, height: 0, paddingTop: 0, paddingBottom: 0, scale: 0.95, margin: 0 }}
                     transition={{ duration: 0.4 }}
-                    className="bg-cyan/5 dark:bg-cyan/10 border border-cyan/30 rounded-xl px-4 flex flex-col sm:flex-row sm:items-start gap-4 overflow-hidden relative"
+                    className="bg-red/5 dark:bg-red/10 border border-red/30 rounded-xl px-4 flex flex-col sm:flex-row sm:items-start gap-4 overflow-hidden relative"
                   >
-                    {/* Scanning Laser Effect border */}
                     <motion.div 
-                      className="absolute left-0 right-0 h-0.5 bg-cyan shadow-[0_0_8px_#00c2ff] z-10"
+                      className="absolute left-0 right-0 h-0.5 bg-red shadow-[0_0_8px_#ff0000] z-10"
                       initial={{ top: 0, opacity: 0 }}
                       animate={{ top: "100%", opacity: [0, 1, 1, 0] }}
-                      transition={{ duration: 1.2, ease: "linear", repeat: Infinity }}
+                      transition={{ duration: 1.5, ease: "linear", repeat: Infinity }}
                     />
-
-                    {/* Icon Date Skeleton */}
                     <div className="flex items-center sm:flex-col sm:items-end gap-2 sm:gap-1 shrink-0 sm:w-24 pt-1">
-                      <div className="text-[10px] text-cyan font-bold animate-pulse tracking-widest uppercase">
-                        Scanning
+                      <div className="text-[10px] text-red font-bold animate-pulse tracking-widest uppercase">
+                        Crawling
                       </div>
-                      <div className="w-12 h-2 rounded bg-cyan/20 animate-pulse mt-2"></div>
+                      <div className="w-12 h-2 rounded bg-red/20 animate-pulse mt-2"></div>
                     </div>
-
-                    {/* Content Skeleton */}
                     <div className="flex-1 w-full pt-0.5">
                       <div className="flex items-center gap-2 mb-3">
-                        <div className="w-20 h-5 rounded-md bg-cyan/20 animate-pulse"></div>
-                        <div className="w-32 h-4 rounded bg-cyan/10 animate-pulse"></div>
+                        <div className="w-20 h-5 rounded-md bg-red/20 animate-pulse"></div>
+                        <div className="w-32 h-4 rounded bg-red/10 animate-pulse"></div>
                       </div>
-                      
                       <div className="space-y-2 mb-3">
-                        <div className="w-full h-3 rounded bg-cyan/10 animate-pulse"></div>
-                        <div className="w-4/5 h-3 rounded bg-cyan/10 animate-pulse"></div>
-                        <div className="w-1/2 h-3 rounded bg-cyan/10 animate-pulse"></div>
+                        <div className="w-full h-3 rounded bg-red/10 animate-pulse"></div>
+                        <div className="w-4/5 h-3 rounded bg-red/10 animate-pulse"></div>
                       </div>
-                      
-                      <div className="flex items-center gap-2 mt-4 text-xs font-mono text-cyan/70">
+                      <div className="flex items-center gap-2 mt-4 text-xs font-mono text-red/70">
                         <Loader2 className="w-3 h-3 animate-spin" />
-                        Decrypting target patterns...
+                        Analyzing .eg domains in paste dumps...
                       </div>
                     </div>
                   </motion.div>
@@ -399,7 +358,7 @@ export default function LiveThreatFeed() {
                     className="flex flex-col items-center justify-center h-full text-neutral-500 gap-3"
                   >
                     <Activity className="w-8 h-8 opacity-50" />
-                    <p className="text-sm font-sans">No recent threats match your filters.</p>
+                    <p className="text-sm font-sans">No regional threats match your filters.</p>
                   </motion.div>
                 )}
 
@@ -410,7 +369,7 @@ export default function LiveThreatFeed() {
                     animate={{ opacity: 1, y: 0, height: 'auto', paddingTop: '1rem', paddingBottom: '1rem', scale: 1 }}
                     exit={{ opacity: 0, y: -20, height: 0, paddingTop: 0, paddingBottom: 0, scale: 0.9, margin: 0 }}
                     transition={{ duration: 0.4, ease: "easeOut" }}
-                    className="bg-white dark:bg-[#111] border border-black/5 dark:border-white/5 rounded-xl px-4 flex flex-col sm:flex-row sm:items-start gap-4 hover:border-black/20 dark:hover:border-white/20 transition-all hover:bg-gray-50 dark:hover:bg-white/5 cursor-default"
+                    className="bg-gray-50 dark:bg-[#111] border border-black/5 dark:border-white/5 rounded-xl px-4 flex flex-col sm:flex-row sm:items-start gap-4 hover:border-black/20 dark:hover:border-white/20 transition-all hover:bg-white dark:hover:bg-white/5 cursor-default"
                   >
                     {/* Timestamp & Icon */}
                     <div className="flex items-center sm:flex-col sm:items-end gap-2 sm:gap-1 shrink-0 sm:w-24">
@@ -439,8 +398,8 @@ export default function LiveThreatFeed() {
                       </p>
                       
                       <div className="text-xs text-neutral-500 flex items-center gap-1">
-                        <span className="opacity-70">Target Pattern:</span> 
-                        <span className="text-cyan">{threat.target}</span>
+                        <span className="opacity-70">Identified Asset:</span> 
+                        <span className="text-red font-bold">{threat.target}</span>
                       </div>
                     </div>
                   </motion.div>
@@ -449,7 +408,7 @@ export default function LiveThreatFeed() {
             </div>
 
             {/* Fade Out Edge */}
-            <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-gray-50 dark:from-[#0A0A0A] to-transparent pointer-events-none"></div>
+            <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-white dark:from-[#0A0A0A] to-transparent pointer-events-none"></div>
           </div>
         </div>
       </div>

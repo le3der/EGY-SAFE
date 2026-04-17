@@ -1,12 +1,19 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ShieldAlert, Network, ScanSearch, Lock, Terminal, Globe, ChevronRight, Activity, AlertTriangle, Database, Shield, Eye, Radar, ShieldCheck, Bug, ShoppingCart, Server, Filter, BellRing, Plus, Zap, Linkedin, Twitter, Send, Check, ArrowUp, Sun, Moon, ChevronLeft, ArrowRight, Share2 } from 'lucide-react';
+import { ShieldAlert, Network, ScanSearch, Lock, Terminal, Globe, ChevronRight, Activity, AlertTriangle, Database, Shield, Eye, Radar, ShieldCheck, Bug, ShoppingCart, Server, Filter, BellRing, Plus, Zap, Linkedin, Twitter, Send, Check, ArrowUp, Sun, Moon, ChevronLeft, ArrowRight, Share2, LogIn, LogOut, Settings } from 'lucide-react';
 import Chatbot from './components/Chatbot';
 import LiveThreatFeed from './components/LiveThreatFeed';
+import EgyptDarkWebScanner from './components/EgyptDarkWebScanner';
 import SecurityAssessmentModal from './components/SecurityAssessmentModal';
 import DataFlowBackground from './components/DataFlowBackground';
 import ConsultationModal from './components/ConsultationModal';
-import { Toaster } from 'react-hot-toast';
+import InteractiveTimeline from './components/InteractiveTimeline';
+import LazyImage from './components/LazyImage';
+import AdminPanel from './components/AdminPanel';
+import MfaVerificationModal from './components/MfaVerificationModal';
+import LoginModal from './components/LoginModal';
+import { Toaster, toast } from 'react-hot-toast';
+import { useAuth } from './context/AuthContext';
 
 const carouselItems = [
   { icon: Globe, name: 'Global Tech Enterprise' },
@@ -17,12 +24,14 @@ const carouselItems = [
 const StatCounter = ({ end, prefix = '', suffix = '', duration = 2000, delay = 0 }: { end: number, prefix?: string, suffix?: string, duration?: number, delay?: number }) => {
   const [count, setCount] = useState(0);
   const [hasAnimated, setHasAnimated] = useState(false);
+  const [isCounting, setIsCounting] = useState(false);
   const ref = useRef<HTMLSpanElement>(null);
 
   useEffect(() => {
     const observer = new IntersectionObserver(([entry]) => {
       if (entry.isIntersecting && !hasAnimated) {
         setHasAnimated(true);
+        setIsCounting(true);
         
         setTimeout(() => {
           const startTime = performance.now();
@@ -37,6 +46,7 @@ const StatCounter = ({ end, prefix = '', suffix = '', duration = 2000, delay = 0
               requestAnimationFrame(animate);
             } else {
               setCount(end);
+              setIsCounting(false);
             }
           };
           requestAnimationFrame(animate);
@@ -49,13 +59,17 @@ const StatCounter = ({ end, prefix = '', suffix = '', duration = 2000, delay = 0
   }, [end, duration, delay, hasAnimated]);
 
   return (
-    <span ref={ref}>
+    <span 
+      ref={ref}
+      className={`inline-block transition-all duration-300 ${isCounting ? 'opacity-80 animate-pulse text-cyan drop-shadow-[0_0_10px_rgba(0,194,255,0.6)]' : 'drop-shadow-none'}`}
+    >
       {prefix}{count.toLocaleString()}{suffix}
     </span>
   );
 };
 
 export default function App() {
+  const { user, profile, loading: authLoading, signInWithGoogle, logout } = useAuth();
   const [openAccordion, setOpenAccordion] = useState<number | null>(0);
   const [isScrolled, setIsScrolled] = useState(false);
   const [showScrollTop, setShowScrollTop] = useState(false);
@@ -69,6 +83,7 @@ export default function App() {
   
   // Theme state
   const [theme, setTheme] = useState<'light' | 'dark'>('dark');
+  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
 
   // Track active section for Chatbot
   useEffect(() => {
@@ -93,30 +108,14 @@ export default function App() {
     return () => observer.disconnect();
   }, [activeSection]);
 
-  // Initialize theme from localStorage or system preference
-  useEffect(() => {
-    const savedTheme = localStorage.getItem('theme');
-    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    
-    // Default to dark if no saved preference
-    const initialTheme = savedTheme === 'light' ? 'light' : 'dark';
-    setTheme(initialTheme);
-  }, []);
-
-  // Monitor theme changes and update DOM/localStorage
+  // Initialize theme to be always dark
   useEffect(() => {
     const root = window.document.documentElement;
-    if (theme === 'dark') {
-      root.classList.add('dark');
-      localStorage.setItem('theme', 'dark');
-    } else {
-      root.classList.remove('dark');
-      localStorage.setItem('theme', 'light');
-    }
-  }, [theme]);
+    root.classList.add('dark');
+  }, []);
 
   const toggleTheme = () => {
-    setTheme(prev => prev === 'dark' ? 'light' : 'dark');
+    // Disabled
   };
 
   useEffect(() => {
@@ -166,15 +165,6 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const howItWorksSteps = [
-    { num: '01', icon: <Bug className="w-6 h-6" />, title: "Device Compromise", desc: "Millions of devices are infected with info-stealer malware — delivered via cracked software, torrents, phishing, and other attack vectors." },
-    { num: '02', icon: <ShoppingCart className="w-6 h-6" />, title: "Credentials Hit the Market", desc: "Attackers publish stolen credentials and device data on exclusive underground marketplaces across multiple platforms." },
-    { num: '03', icon: <Radar className="w-6 h-6" />, title: "We Monitor Everything", desc: "Our engine monitors dark web marketplaces, hacking forums, private clouds, underground channels, Telegram, Discord, and paste sites — continuously." },
-    { num: '04', icon: <Server className="w-6 h-6" />, title: "C2 Server Intelligence", desc: "By exploiting vulnerabilities in info-stealer Command-and-Control servers, we capture stolen data directly from attacker infrastructure." },
-    { num: '05', icon: <Filter className="w-6 h-6" />, title: "Automated Processing", desc: "All collected data is filtered, validated, and classified through our automated pipelines and fed into the Egy Safe database." },
-    { num: '06', icon: <BellRing className="w-6 h-6" />, title: "Real-Time Alerts & Mitigation", desc: "We deliver real-time breach alerts to your team and provide hands-on guidance to eliminate the risk before damage is done." }
-  ];
-
   const whyEgySafeItems = [
     { title: "Comprehensive Coverage", body: "Our monitoring engine covers dark web markets, hacking forums, source code repositories, paste sites, private clouds, Telegram, Discord, Tor sites, and more — leaving no blind spots." },
     { title: "Hybrid AI + Human Intelligence", body: "We combine artificial intelligence with human analyst expertise to eliminate false positives and ensure every alert is verified, classified, and actionable." },
@@ -185,63 +175,91 @@ export default function App() {
   ];
 
   return (
-    <div className="min-h-screen bg-white dark:bg-black text-neutral-600 dark:text-neutral-400 font-sans text-base leading-[1.7] selection:bg-cyan selection:text-black overflow-x-hidden relative">
+    <div className="min-h-screen bg-black text-neutral-400 font-sans text-base leading-[1.7] selection:bg-cyan selection:text-black overflow-x-hidden relative">
       <Toaster position="bottom-right" toastOptions={{ style: { background: '#111', color: '#fff', border: '1px solid rgba(0,194,255,0.3)' } }} />
+      <MfaVerificationModal />
       {/* Global Noise Overlay */}
       <div className="fixed inset-0 bg-noise z-50 mix-blend-overlay pointer-events-none"></div>
 
       {/* Navigation */}
-      <nav className={`fixed top-0 w-full z-50 transition-all duration-300 ${isScrolled ? 'bg-white dark:bg-black/80 backdrop-blur-xl border-b border-black/5 dark:border-white/5 py-4' : 'bg-transparent py-6'}`}>
+      <nav className={`fixed top-0 w-full z-50 transition-all duration-300 ${isScrolled ? 'bg-black/80 backdrop-blur-xl border-b border-white/5 py-4' : 'bg-transparent py-6'}`}>
         <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="relative flex items-center justify-center w-10 h-10">
-              <Shield className="w-8 h-8 text-blue-600 dark:text-cyan" />
-              <Eye className="w-4 h-4 text-navy absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
+              <Shield className="w-8 h-8 text-cyan" />
+              <Eye className="w-4 h-4 text-black absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
             </div>
-            <span className="text-xl font-bold tracking-tight text-black dark:text-offwhite">
+            <span className="text-xl font-bold tracking-tight text-white">
               EgySafe
             </span>
           </div>
           
-          <div className="hidden md:flex items-center gap-8 text-sm font-medium text-black/70 dark:text-offwhite/80">
-            <a href="#services" className="hover:text-blue-600 dark:hover:text-cyan focus:outline-none focus:text-blue-600 dark:focus:text-blue-600 dark:text-cyan transition-colors">Services</a>
-            <a href="#how-it-works" className="hover:text-blue-600 dark:hover:text-cyan focus:outline-none focus:text-blue-600 dark:focus:text-blue-600 dark:text-cyan transition-colors">How It Works</a>
-            <a href="#why" className="hover:text-blue-600 dark:hover:text-cyan focus:outline-none focus:text-blue-600 dark:focus:text-blue-600 dark:text-cyan transition-colors">Why Egy Safe</a>
-            <a href="#pricing" className="hover:text-blue-600 dark:hover:text-cyan focus:outline-none focus:text-blue-600 dark:focus:text-blue-600 dark:text-cyan transition-colors">Pricing</a>
-            <a href="#contact" className="hover:text-blue-600 dark:hover:text-cyan focus:outline-none focus:text-blue-600 dark:focus:text-blue-600 dark:text-cyan transition-colors">Contact</a>
+          <div className="hidden md:flex items-center gap-8 text-sm font-medium text-white/80">
+            <a href="#services" className="hover:text-cyan focus:outline-none focus:text-cyan transition-colors">Services</a>
+            <a href="#how-it-works" className="hover:text-cyan focus:outline-none focus:text-cyan transition-colors">How It Works</a>
+            <a href="#why" className="hover:text-cyan focus:outline-none focus:text-cyan transition-colors">Why Egy Safe</a>
+            <a href="#pricing" className="hover:text-cyan focus:outline-none focus:text-cyan transition-colors">Pricing</a>
+            <a href="#contact" className="hover:text-cyan focus:outline-none focus:text-cyan transition-colors">Contact</a>
           </div>
 
           <div className="flex items-center gap-4">
-            <button 
-              onClick={toggleTheme}
-              className="p-2 rounded-full border border-black/10 dark:border-white/10 text-neutral-600 dark:text-neutral-400 hover:text-black hover:bg-black/5 dark:hover:bg-white/5 dark:hover:text-white transition-all focus:outline-none focus:ring-2 focus:ring-cyan"
-              aria-label="Toggle Dark Mode"
-            >
-              {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-            </button>
-            <button className="bg-cyan hover:bg-cyan/90 text-navy px-6 py-2.5 rounded-md font-semibold text-sm transition-all duration-300 hover:scale-105 active:scale-95 glow-cyan hidden sm:block focus:outline-none focus:ring-2 focus:ring-cyan focus:ring-offset-2 focus:ring-offset-navy">
+            
+            {!authLoading && user ? (
+              <div className="flex items-center gap-2">
+                {profile?.role === 'Admin' && (
+                  <a href="#admin" className="p-2 text-neutral-400 hover:text-cyan transition-colors" title="Admin Panel">
+                    <Settings className="w-5 h-5" />
+                  </a>
+                )}
+                <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full border border-white/10 bg-white/5 text-xs font-medium text-white">
+                  <span className="w-2 h-2 rounded-full bg-green-500"></span>
+                  <span className="max-w-[100px] truncate">{user.email}</span>
+                </div>
+                <button 
+                  onClick={logout} 
+                  className="p-2 text-neutral-500 hover:text-red transition-colors"
+                  title="Logout"
+                >
+                  <LogOut className="w-5 h-5" />
+                </button>
+              </div>
+            ) : (
+              <button 
+                onClick={() => setIsLoginModalOpen(true)} 
+                className="flex items-center gap-2 text-sm font-medium hover:text-cyan transition-colors text-white"
+              >
+                <LogIn className="w-4 h-4" />
+                <span className="hidden sm:inline">Sign In</span>
+              </button>
+            )}
+
+            <button className="bg-cyan hover:bg-cyan/90 text-black px-6 py-2.5 rounded-md font-semibold text-sm transition-all duration-300 hover:scale-105 active:scale-95 glow-cyan hidden md:block focus:outline-none focus:ring-2 focus:ring-cyan focus:ring-offset-2 focus:ring-offset-black">
               Request Demo
             </button>
           </div>
         </div>
       </nav>
 
-      {/* Hero Section */}
-      <section className="relative pt-32 pb-20 lg:pt-48 lg:pb-32 min-h-[90vh] flex flex-col justify-center overflow-hidden bg-white dark:bg-black">
-        <div className="absolute inset-0 bg-grid-pattern opacity-50 z-0"></div>
-        
-        {/* Abstract Glowing Node Graph Background */}
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-cyan/5 rounded-full blur-[120px] pointer-events-none z-0 animate-slow-float"></div>
-        <div className="absolute top-1/4 right-0 w-[400px] h-[400px] bg-red/5 blur-[100px] rounded-full pointer-events-none animate-slow-float" style={{ animationDelay: '2s' }}></div>
+      {/* Login Modal */}
+      <LoginModal isOpen={isLoginModalOpen} onClose={() => setIsLoginModalOpen(false)} />
 
-        <div className="max-w-5xl mx-auto px-6 relative z-10 text-center flex flex-col items-center fade-in-section">
+      {/* Hero Section */}
+      <section className="relative pt-32 pb-20 lg:pt-48 lg:pb-32 min-h-[90vh] flex flex-col justify-center overflow-hidden bg-black text-white">
+        {/* Animated Cyber Background */}
+        <DataFlowBackground />
+        
+        {/* Subtle top/bottom fade to blend with standard sections */}
+        <div className="absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-black to-transparent pointer-events-none z-0"></div>
+        <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-black to-transparent pointer-events-none z-0"></div>
+
+        <div className="max-w-5xl mx-auto px-6 relative z-10 text-center flex flex-col items-center fade-in-section pb-16">
           <motion.div 
             initial={{ opacity: 0, y: 30, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             transition={{ duration: 1, type: "spring", stiffness: 100, damping: 20 }}
             className="flex flex-col items-center"
           >
-            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/5 border border-black/10 dark:border-white/10 backdrop-blur-md text-black dark:text-white text-xs font-bold tracking-widest uppercase mb-8 shadow-[0_0_30px_rgba(255,255,255,0.05)]">
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/5 border border-white/10 backdrop-blur-md text-white text-xs font-bold tracking-widest uppercase mb-8 shadow-[0_0_30px_rgba(255,255,255,0.05)]">
               <span className="w-2 h-2 rounded-full bg-red animate-ping absolute opacity-75"></span>
               <span className="w-2 h-2 rounded-full bg-red relative"></span>
               Live Monitoring — 24/7
@@ -249,14 +267,14 @@ export default function App() {
             
             <h1 className="text-[clamp(3rem,8vw,6rem)] font-extrabold leading-[1.05] tracking-tighter mb-6">
               <span className="text-gradient-shimmer">Your Data is Already Out There.</span><br />
-              <span className="text-blue-600 dark:text-cyan-shimmer">Do You Know What's Exposed?</span>
+              <span className="text-cyan-shimmer">Do You Know What's Exposed?</span>
             </h1>
             
             <motion.p 
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.3, duration: 1 }}
-              className="text-lg md:text-xl text-neutral-600 dark:text-neutral-400 mb-10 leading-relaxed max-w-3xl font-medium"
+              className="text-lg md:text-xl text-neutral-400 mb-10 leading-relaxed max-w-3xl font-medium"
             >
               Egy Safe monitors the surface, deep & dark web 24/7 — alerting you the moment your company's assets, credentials, or data appear in the wrong hands.
             </motion.p>
@@ -270,16 +288,50 @@ export default function App() {
               <button className="bg-cyan hover:bg-white text-black px-8 py-4 rounded-md font-bold text-base transition-all duration-300 hover:scale-105 active:scale-95 glow-cyan w-full sm:w-auto focus:outline-none focus:ring-2 focus:ring-cyan focus:ring-offset-2 focus:ring-offset-black">
                 Start Free Scan
               </button>
-              <button className="bg-transparent border border-black/20 dark:border-white/20 text-black dark:text-white hover:bg-white/10 hover:border-black/5 dark:border-black/50 dark:border-white/50 px-8 py-4 rounded-md font-bold text-base transition-all duration-300 w-full sm:w-auto focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-black">
+              <button className="bg-transparent border border-white/20 text-white hover:bg-white/10 px-8 py-4 rounded-md font-bold text-base transition-all duration-300 w-full sm:w-auto focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-black">
                 See How It Works
               </button>
             </motion.div>
           </motion.div>
         </div>
+
+        {/* Global Trusted By Section - Showcasing Lazy Loading */}
+        <div className="w-full relative z-10 pt-16 mt-8 border-t border-black/5 dark:border-white/5">
+          <div className="max-w-7xl mx-auto px-6 text-center">
+            <p className="text-xs font-bold tracking-widest uppercase text-neutral-500 mb-8">Trusted by SecOps Teams at Forward-Thinking Enterprise</p>
+            <div className="flex flex-wrap justify-center gap-8 md:gap-16 items-center opacity-60 grayscale hover:grayscale-0 transition-all duration-700">
+              <LazyImage 
+                src="https://picsum.photos/seed/tech1/200/60" 
+                alt="Partner Logo 1" 
+                className="w-32 h-8 md:h-10 dark:invert"
+              />
+              <LazyImage 
+                src="https://picsum.photos/seed/tech2/200/60" 
+                alt="Partner Logo 2" 
+                className="w-32 h-8 md:h-10 dark:invert"
+              />
+              <LazyImage 
+                src="https://picsum.photos/seed/tech3/200/60" 
+                alt="Partner Logo 3" 
+                className="w-32 h-8 md:h-10 dark:invert"
+              />
+              <LazyImage 
+                src="https://picsum.photos/seed/tech4/200/60" 
+                alt="Partner Logo 4" 
+                className="w-32 h-8 md:h-10 dark:invert hidden sm:flex"
+              />
+              <LazyImage 
+                src="https://picsum.photos/seed/tech5/200/60" 
+                alt="Partner Logo 5" 
+                className="w-32 h-8 md:h-10 dark:invert hidden lg:flex"
+              />
+            </div>
+          </div>
+        </div>
       </section>
 
       {/* Ticker Bar */}
-      <div className="w-full overflow-hidden border-y border-black/5 dark:border-white/5 bg-white dark:bg-black py-4 flex whitespace-nowrap relative z-20 mask-edges">
+      <div className="w-full overflow-hidden border-y border-white/5 bg-black py-4 flex whitespace-nowrap relative z-20 mask-edges">
         <div className="animate-marquee flex gap-12 text-sm font-mono text-neutral-500 dark:text-neutral-500 items-center w-max">
           {/* Half 1 */}
           <div className="flex gap-12 items-center">
@@ -304,6 +356,9 @@ export default function App() {
 
       {/* Live Threat Feed Section */}
       <LiveThreatFeed />
+
+      {/* Egypt Regional Scanner Section */}
+      <EgyptDarkWebScanner />
 
       {/* Services Section */}
       <section id="services" className="py-32 bg-[#020202] dark:bg-[#020202] relative fade-in-section overflow-hidden">
@@ -390,8 +445,9 @@ export default function App() {
                 visible: { opacity: 1, y: 0, transition: { duration: 0.8, type: "spring", stiffness: 100, damping: 20 } }
               }}
               whileHover="hover"
-              className="bg-[#050505] border border-white/5 hover:border-cyan/30 p-8 rounded-xl transition-all group flex flex-col relative overflow-hidden"
+              className="cyber-glass-card p-8 group flex flex-col relative"
             >
+              <div className="cyber-glass-card-glow"></div>
               {/* Subtle Parallax Background */}
               <div className="absolute top-0 right-0 -mr-16 -mt-16 w-48 h-48 bg-cyan/10 rounded-full blur-[60px] opacity-0 group-hover:opacity-100 group-hover:translate-x-4 group-hover:-translate-y-4 transition-all duration-700 pointer-events-none z-0"></div>
 
@@ -441,8 +497,9 @@ export default function App() {
                 visible: { opacity: 1, y: 0, transition: { duration: 0.8, type: "spring", stiffness: 100, damping: 20 } }
               }}
               whileHover="hover"
-              className="bg-[#050505] border border-white/5 hover:border-blue-500/30 p-8 rounded-xl transition-all group flex flex-col relative overflow-hidden"
+              className="cyber-glass-card p-8 group flex flex-col relative"
             >
+              <div className="cyber-glass-card-glow text-blue-500/20" style={{ background: 'radial-gradient(circle, rgba(59,130,246,0.2) 0%, transparent 70%)'}}></div>
               {/* Subtle Parallax Background */}
               <div className="absolute top-0 right-0 -mr-16 -mt-16 w-48 h-48 bg-blue-500/10 rounded-full blur-[60px] opacity-0 group-hover:opacity-100 group-hover:translate-x-4 group-hover:-translate-y-4 transition-all duration-700 pointer-events-none z-0"></div>
 
@@ -484,8 +541,9 @@ export default function App() {
                 visible: { opacity: 1, y: 0, transition: { duration: 0.8, type: "spring", stiffness: 100, damping: 20 } }
               }}
               whileHover="hover"
-              className="bg-[#050505] border border-white/5 hover:border-purple-500/30 p-8 rounded-xl transition-all group flex flex-col relative overflow-hidden"
+              className="cyber-glass-card p-8 group flex flex-col relative"
             >
+              <div className="cyber-glass-card-glow text-purple-500/20" style={{ background: 'radial-gradient(circle, rgba(168,85,247,0.2) 0%, transparent 70%)'}}></div>
               {/* Subtle Parallax Background */}
               <div className="absolute top-0 right-0 -mr-16 -mt-16 w-48 h-48 bg-purple-500/10 rounded-full blur-[60px] opacity-0 group-hover:opacity-100 group-hover:translate-x-4 group-hover:-translate-y-4 transition-all duration-700 pointer-events-none z-0"></div>
 
@@ -529,77 +587,48 @@ export default function App() {
       </section>
 
       {/* How It Works Section */}
-      <section id="how-it-works" className="py-24 relative border-t border-black/5 dark:border-white/5 fade-in-section bg-white dark:bg-black">
+      <section id="how-it-works" className="py-24 relative border-t border-white/5 fade-in-section bg-black text-white">
         <div className="max-w-7xl mx-auto px-6">
           <div className="mb-20 text-center max-w-3xl mx-auto">
-            <h2 className="text-[clamp(1.5rem,3.5vw,2.5rem)] font-bold mb-4 text-black dark:text-white">How Egy Safe Works</h2>
-            <p className="text-neutral-600 dark:text-neutral-400 text-lg">From stolen device to real-time alert — here's our end-to-end process.</p>
+            <h2 className="text-[clamp(1.5rem,3.5vw,2.5rem)] font-bold mb-4 text-white">How Egy Safe Works</h2>
+            <p className="text-neutral-400 text-lg">From stolen device to real-time alert — here's our end-to-end process.</p>
           </div>
 
-          <div className="relative max-w-5xl mx-auto">
-            {/* Vertical Line */}
-            <div className="absolute left-6 md:left-1/2 top-0 bottom-0 w-px bg-white/10 -translate-x-1/2"></div>
-            
-            {howItWorksSteps.map((step, index) => (
-              <div key={index} className="relative flex flex-col md:flex-row items-center justify-between w-full mb-12 md:mb-24 timeline-step opacity-0 translate-y-8 transition-all duration-700 ease-out md:even:flex-row-reverse">
-                {/* Node */}
-                <div className="absolute left-6 md:left-1/2 -translate-x-1/2 w-12 h-12 rounded-full bg-white dark:bg-black border-2 border-cyan flex items-center justify-center z-10 shadow-[0_0_15px_rgba(0,194,255,0.2)]">
-                  <span className="text-blue-600 dark:text-cyan text-sm font-bold">{step.num}</span>
-                </div>
-
-                {/* Spacer */}
-                <div className="hidden md:block w-[calc(50%-3rem)]"></div>
-
-                {/* Content */}
-                <div className="w-full pl-16 md:pl-0 md:w-[calc(50%-3rem)]">
-                  <div className="bg-gray-50 dark:bg-[#0A0A0A] border border-black/5 dark:border-white/5 p-8 rounded-xl hover:border-cyan/30 transition-colors card-gradient-hover">
-                    <div className="flex items-center gap-4 mb-4">
-                      <div className="p-3 bg-cyan/10 rounded-lg text-blue-600 dark:text-cyan">
-                        {step.icon}
-                      </div>
-                      <h3 className="text-xl font-bold text-black dark:text-white">{step.title}</h3>
-                    </div>
-                    <p className="text-neutral-600 dark:text-neutral-400 leading-relaxed">
-                      {step.desc}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
+          <InteractiveTimeline />
         </div>
       </section>
 
       {/* Why Egy Safe Section */}
-      <section id="why" className="py-24 relative bg-gray-100 dark:bg-[#050505] fade-in-section">
+      <section id="why" className="py-24 relative bg-[#050505] fade-in-section text-white">
         <div className="max-w-4xl mx-auto px-6">
           <div className="mb-16 text-center">
-            <h2 className="text-[clamp(1.5rem,3.5vw,2.5rem)] font-bold mb-4 text-black dark:text-white">Why Security Teams Choose Egy Safe</h2>
-            <p className="text-neutral-600 dark:text-neutral-400 text-lg">Our feeds are updated across the hour. We capture and contextualize as much leaked data as possible — helping you prevent breaches before they escalate.</p>
+            <h2 className="text-[clamp(1.5rem,3.5vw,2.5rem)] font-bold mb-4 text-white">Why Security Teams Choose Egy Safe</h2>
+            <p className="text-neutral-400 text-lg">Our feeds are updated across the hour. We capture and contextualize as much leaked data as possible — helping you prevent breaches before they escalate.</p>
           </div>
 
           <div className="space-y-4">
             {whyEgySafeItems.map((item, index) => {
               const isOpen = openAccordion === index;
               return (
-                <div key={index} className="border border-black/5 dark:border-white/5 rounded-lg bg-gray-50 dark:bg-[#0A0A0A] overflow-hidden transition-all duration-300 hover:border-black/10 dark:border-white/10">
+                <div key={index} className="cyber-glass-card rounded-lg overflow-hidden transition-all duration-300">
+                  <div className="cyber-glass-card-glow text-cyan/10"></div>
                   <button
                     onClick={() => setOpenAccordion(isOpen ? null : index)}
-                    className="group w-full flex items-center justify-between p-6 text-left focus:outline-none focus:ring-2 focus:ring-cyan/50 focus:ring-inset"
+                    className="group w-full flex items-center justify-between p-6 text-left focus:outline-none focus:ring-2 focus:ring-cyan/50 focus:ring-inset relative z-10"
                     aria-expanded={isOpen}
                     aria-controls={`faq-content-${index}`}
                     id={`faq-button-${index}`}
                   >
-                    <span className="text-lg font-bold text-black dark:text-white pr-8">{item.title}</span>
-                    <div className={`w-8 h-8 rounded-full border flex items-center justify-center shrink-0 transition-all duration-300 ${isOpen ? 'rotate-45 bg-white text-black border-black dark:border-white' : 'border-black/20 dark:border-white/20 text-black dark:text-white bg-transparent'}`}>
+                    <span className="text-lg font-bold text-white pr-8">{item.title}</span>
+                    <div className={`w-8 h-8 rounded-full border flex items-center justify-center shrink-0 transition-all duration-300 ${isOpen ? 'rotate-45 bg-white text-black border-white' : 'border-white/20 text-white bg-transparent'}`}>
                       <Plus className="w-5 h-5 transition-transform duration-300 group-hover:scale-110 group-hover:rotate-12" />
                     </div>
                   </button>
                   <div 
-                    className={`grid transition-all duration-300 ease-in-out ${isOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}
+                    className={`grid transition-all duration-300 ease-in-out relative z-10 ${isOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}
                   >
                     <div className="overflow-hidden">
-                      <p className="p-6 pt-0 text-neutral-600 dark:text-neutral-400 leading-relaxed">
+                      <p className="p-6 pt-0 text-neutral-400 leading-relaxed">
                         {item.body}
                       </p>
                     </div>
@@ -612,11 +641,11 @@ export default function App() {
       </section>
 
       {/* Terminal / Code Section */}
-      <section className="py-24 bg-white dark:bg-black border-y border-black/5 dark:border-white/5 fade-in-section">
+      <section className="py-24 bg-black border-y border-white/5 fade-in-section text-white">
         <div className="max-w-7xl mx-auto px-6 grid lg:grid-cols-2 gap-16 items-center">
           <div>
-            <h2 className="text-[clamp(1.5rem,3.5vw,2.5rem)] font-bold mb-6 text-black dark:text-white">Intelligence-Driven Defense</h2>
-            <p className="text-neutral-600 dark:text-neutral-400 text-lg mb-6 leading-relaxed">
+            <h2 className="text-[clamp(1.5rem,3.5vw,2.5rem)] font-bold mb-6 text-white">Intelligence-Driven Defense</h2>
+            <p className="text-neutral-400 text-lg mb-6 leading-relaxed">
               Traditional security relies on known signatures. Egy Safe utilizes proprietary threat intelligence gathered directly from the Egyptian and MENA regional underground.
             </p>
             <ul className="space-y-4 mb-8">
@@ -642,14 +671,14 @@ export default function App() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, margin: "-50px" }}
               transition={{ duration: 0.8, type: "spring", stiffness: 100 }}
-              className="rounded-xl overflow-hidden border border-black/20 dark:border-white/20 bg-white dark:bg-black/60 backdrop-blur-3xl shadow-[0_0_40px_rgba(0,194,255,0.05)] relative"
+              className="cyber-glass-card"
             >
               <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent pointer-events-none"></div>
-              <div className="bg-gray-50 dark:bg-[#0A0A0A]/80 px-4 py-3 border-b border-black/10 dark:border-white/10 flex items-center gap-2 relative z-10 backdrop-blur-md">
+              <div className="bg-[#0A0A0A]/80 px-4 py-3 border-b border-white/10 flex items-center gap-2 relative z-10 backdrop-blur-md">
                 <div className="w-3 h-3 rounded-full bg-red/80 shadow-[0_0_10px_rgba(255,59,87,0.5)]"></div>
                 <div className="w-3 h-3 rounded-full bg-yellow-500/80 shadow-[0_0_10px_rgba(234,179,8,0.5)]"></div>
                 <div className="w-3 h-3 rounded-full bg-green-500/80 shadow-[0_0_10px_rgba(34,197,94,0.5)]"></div>
-                <span className="ml-4 text-xs font-mono text-neutral-500 dark:text-neutral-500">egysafe-intel-engine ~ root</span>
+                <span className="ml-4 text-xs font-mono text-neutral-500">egysafe-intel-engine ~ root</span>
               </div>
               <motion.div 
                 initial="hidden"
@@ -659,9 +688,9 @@ export default function App() {
                   visible: { transition: { staggerChildren: 0.3 } },
                   hidden: {}
                 }}
-                className="p-6 font-mono text-sm text-blue-600 dark:text-cyan/90 leading-relaxed overflow-x-auto relative z-10"
+                className="p-6 font-mono text-sm text-cyan/90 leading-relaxed overflow-x-auto relative z-10"
               >
-                <motion.p variants={{ hidden: { opacity: 0, x: -10 }, visible: { opacity: 1, x: 0 } }} className="text-neutral-500 dark:text-neutral-500 mb-2">$ ./scan_surface --target enterprise.com.eg</motion.p>
+                <motion.p variants={{ hidden: { opacity: 0, x: -10 }, visible: { opacity: 1, x: 0 } }} className="text-neutral-500 mb-2">$ ./scan_surface --target enterprise.com.eg</motion.p>
                 <motion.p variants={{ hidden: { opacity: 0, x: -10 }, visible: { opacity: 1, x: 0 } }} className="mb-1">[+] Initializing reconnaissance module...</motion.p>
                 <motion.p variants={{ hidden: { opacity: 0, x: -10 }, visible: { opacity: 1, x: 0 } }} className="mb-1">[+] Discovering subdomains (passive + active)</motion.p>
                 <motion.p variants={{ hidden: { opacity: 0, x: -10 }, visible: { opacity: 1, x: 0 } }} className="mb-1">[+] Found 42 subdomains.</motion.p>
@@ -670,21 +699,21 @@ export default function App() {
                 <motion.p variants={{ hidden: { opacity: 0, x: -10 }, visible: { opacity: 1, x: 0 } }} className="text-red mb-1">! CRITICAL: Exposed database port detected on dev.enterprise.com.eg:5432</motion.p>
                 <motion.p variants={{ hidden: { opacity: 0, x: -10 }, visible: { opacity: 1, x: 0 } }} className="text-yellow-500 mb-4">! WARNING: Outdated TLS certificate on mail.enterprise.com.eg</motion.p>
                 
-                <motion.p variants={{ hidden: { opacity: 0, x: -10 }, visible: { opacity: 1, x: 0, transition: { delay: 0.5 } } }} className="text-neutral-500 dark:text-neutral-500 mb-2">$ ./check_darkweb --domain enterprise.com.eg</motion.p>
+                <motion.p variants={{ hidden: { opacity: 0, x: -10 }, visible: { opacity: 1, x: 0, transition: { delay: 0.5 } } }} className="text-neutral-500 mb-2">$ ./check_darkweb --domain enterprise.com.eg</motion.p>
                 <motion.p variants={{ hidden: { opacity: 0, x: -10 }, visible: { opacity: 1, x: 0, transition: { delay: 0.6 } } }} className="mb-1">[+] Querying deep web indices and forum dumps...</motion.p>
                 <motion.p variants={{ hidden: { opacity: 0, x: -10 }, visible: { opacity: 1, x: 0, transition: { delay: 0.8 } } }} className="text-red mb-1 font-bold">! ALERT: 3 compromised credentials found in recent 'Citadel' dump.</motion.p>
-                <motion.p variants={{ hidden: { opacity: 0 }, visible: { opacity: 1, transition: { delay: 1 } } }} className="text-blue-600 dark:text-cyan animate-pulse mt-4">_</motion.p>
+                <motion.p variants={{ hidden: { opacity: 0 }, visible: { opacity: 1, transition: { delay: 1 } } }} className="text-cyan animate-pulse mt-4">_</motion.p>
               </motion.div>
             </motion.div>
         </div>
       </section>
 
       {/* Pricing Section */}
-      <section id="pricing" className="py-24 bg-white dark:bg-black relative fade-in-section border-t border-black/5 dark:border-white/5">
+      <section id="pricing" className="py-24 bg-black relative fade-in-section border-t border-white/5 text-white">
         <div className="max-w-7xl mx-auto px-6">
           <div className="mb-16 text-center max-w-3xl mx-auto">
-            <h2 className="text-[clamp(1.5rem,3.5vw,2.5rem)] font-bold mb-4 text-black dark:text-white">Transparent Pricing for Every Scale</h2>
-            <p className="text-neutral-600 dark:text-neutral-400 text-lg">Choose the right level of protection for your organization.</p>
+            <h2 className="text-[clamp(1.5rem,3.5vw,2.5rem)] font-bold mb-4 text-white">Transparent Pricing for Every Scale</h2>
+            <p className="text-neutral-400 text-lg">Choose the right level of protection for your organization.</p>
           </div>
 
           <motion.div 
@@ -695,7 +724,7 @@ export default function App() {
               visible: { transition: { staggerChildren: 0.2 } },
               hidden: {}
             }}
-            className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto"
+            className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto z-10 relative"
           >
             {/* Basic Tier */}
             <motion.div 
@@ -703,23 +732,24 @@ export default function App() {
                 hidden: { opacity: 0, y: 40 },
                 visible: { opacity: 1, y: 0, transition: { duration: 0.8, type: "spring", stiffness: 100, damping: 20 } }
               }}
-              className="bg-gray-50 dark:bg-[#0A0A0A] border border-black/5 dark:border-white/5 rounded-2xl p-8 flex flex-col"
+              className="cyber-glass-card p-8 flex flex-col"
             >
-              <div className="mb-8">
-                <h3 className="text-xl font-bold text-black dark:text-white mb-2">Basic</h3>
-                <p className="text-neutral-500 dark:text-neutral-500 text-sm mb-6">For small businesses and startups.</p>
-                <div className="text-3xl font-bold text-black dark:text-white mb-2">Contact Sales</div>
-                <p className="text-neutral-600 text-sm">Customized to your asset size</p>
+              <div className="cyber-glass-card-glow"></div>
+              <div className="mb-8 relative z-10">
+                <h3 className="text-xl font-bold text-white mb-2">Basic</h3>
+                <p className="text-neutral-500 text-sm mb-6">For small businesses and startups.</p>
+                <div className="text-3xl font-bold text-white mb-2">Contact Sales</div>
+                <p className="text-neutral-500 text-sm">Customized to your asset size</p>
               </div>
-              <ul className="space-y-4 mb-8 flex-grow">
+              <ul className="space-y-4 mb-8 flex-grow relative z-10">
                 {['Surface Web Monitoring', 'Basic Vulnerability Scanning', 'Weekly Security Reports', 'Email Alerts'].map((feature, i) => (
                   <li key={i} className="flex items-start gap-3 text-neutral-300 text-sm">
-                    <Check className="w-5 h-5 text-blue-600 dark:text-cyan shrink-0" />
+                    <Check className="w-5 h-5 text-cyan shrink-0" />
                     <span>{feature}</span>
                   </li>
                 ))}
               </ul>
-              <button className="w-full py-3 px-6 rounded-lg border border-black/10 dark:border-white/10 text-black dark:text-white font-semibold hover:bg-white/5 transition-colors focus:outline-none focus:ring-2 focus:ring-cyan focus:ring-offset-2 focus:ring-offset-black mt-auto">
+              <button className="w-full relative z-10 py-3 px-6 rounded-lg border border-white/10 text-white font-semibold hover:bg-white/5 transition-colors focus:outline-none focus:ring-2 focus:ring-cyan focus:ring-offset-2 focus:ring-offset-black mt-auto">
                 Request Quote
               </button>
             </motion.div>
@@ -730,27 +760,29 @@ export default function App() {
                 hidden: { opacity: 0, y: 40 },
                 visible: { opacity: 1, y: 0, transition: { duration: 0.8, type: "spring", stiffness: 100, damping: 20 } }
               }}
-              className="card-gradient border border-cyan/30 p-8 flex flex-col relative transform md:-translate-y-6 md:scale-105 shadow-[0_0_50px_rgba(0,194,255,0.1)] z-10 rounded-2xl"
+              className="cyber-glass-card border border-cyan/50 p-8 flex flex-col relative transform md:-translate-y-6 md:scale-105 shadow-[0_0_50px_rgba(0,194,255,0.1)] z-10 hover:border-cyan/80"
+              style={{ background: 'rgba(5, 5, 5, 0.8)' }}
             >
-              <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-cyan text-black px-5 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest shadow-[0_0_20px_rgba(0,194,255,0.4)] flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-white dark:bg-black animate-pulse"></span>
+              <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-cyan text-black px-5 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest shadow-[0_0_20px_rgba(0,194,255,0.4)] flex items-center gap-2 z-20">
+                <span className="w-2 h-2 rounded-full bg-black animate-pulse"></span>
                 Most Popular
               </div>
-              <div className="mb-8">
-                <h3 className="text-xl font-bold text-blue-600 dark:text-cyan mb-2">Professional</h3>
-                <p className="text-blue-600 dark:text-cyan/60 text-sm mb-6">For mid-market and growing enterprises.</p>
-                <div className="text-3xl font-bold text-black dark:text-white mb-2">Contact Sales</div>
-                <p className="text-blue-600 dark:text-cyan/40 text-sm">Customized to your asset size</p>
+              <div className="cyber-glass-card-glow text-cyan/20" style={{ background: 'radial-gradient(circle, rgba(0,194,255,0.2) 0%, transparent 70%)'}}></div>
+              <div className="mb-8 relative z-10">
+                <h3 className="text-xl font-bold text-cyan mb-2">Professional</h3>
+                <p className="text-cyan/60 text-sm mb-6">For mid-market and growing enterprises.</p>
+                <div className="text-3xl font-bold text-white mb-2">Contact Sales</div>
+                <p className="text-cyan/40 text-sm">Customized to your asset size</p>
               </div>
-              <ul className="space-y-4 mb-8 flex-grow">
+              <ul className="space-y-4 mb-8 flex-grow relative z-10">
                 {['Dark Web Monitoring', 'Attack Surface Discovery', 'Real-time SMS & Email Alerts', 'API Access', 'Monthly Security Assessment'].map((feature, i) => (
-                  <li key={i} className="flex items-start gap-3 text-black dark:text-white text-sm">
-                    <Check className="w-5 h-5 text-blue-600 dark:text-cyan shrink-0" />
+                  <li key={i} className="flex items-start gap-3 text-white text-sm">
+                    <Check className="w-5 h-5 text-cyan shrink-0" />
                     <span>{feature}</span>
                   </li>
                 ))}
               </ul>
-              <button className="w-full py-3 px-6 rounded-lg bg-cyan text-black font-bold hover:bg-cyan/90 transition-all duration-300 hover:scale-105 active:scale-95 glow-cyan focus:outline-none focus:ring-2 focus:ring-cyan focus:ring-offset-2 focus:ring-offset-black mt-auto">
+              <button className="w-full relative z-10 py-3 px-6 rounded-lg bg-cyan text-black font-bold hover:bg-cyan/90 transition-all duration-300 hover:scale-105 active:scale-95 glow-cyan focus:outline-none focus:ring-2 focus:ring-cyan focus:ring-offset-2 focus:ring-offset-black mt-auto">
                 Request Quote
               </button>
             </motion.div>
@@ -761,23 +793,24 @@ export default function App() {
                 hidden: { opacity: 0, y: 40 },
                 visible: { opacity: 1, y: 0, transition: { duration: 0.8, type: "spring", stiffness: 100, damping: 20 } }
               }}
-              className="bg-gray-50 dark:bg-[#0A0A0A] border border-black/5 dark:border-white/5 rounded-2xl p-8 flex flex-col"
+              className="cyber-glass-card p-8 flex flex-col"
             >
-              <div className="mb-8">
-                <h3 className="text-xl font-bold text-black dark:text-white mb-2">Enterprise</h3>
-                <p className="text-neutral-500 dark:text-neutral-500 text-sm mb-6">For large enterprises and government.</p>
-                <div className="text-3xl font-bold text-black dark:text-white mb-2">Contact Sales</div>
-                <p className="text-neutral-600 text-sm">Customized to your asset size</p>
+              <div className="cyber-glass-card-glow"></div>
+              <div className="mb-8 relative z-10">
+                <h3 className="text-xl font-bold text-white mb-2">Enterprise</h3>
+                <p className="text-neutral-500 text-sm mb-6">For large enterprises and government.</p>
+                <div className="text-3xl font-bold text-white mb-2">Contact Sales</div>
+                <p className="text-neutral-500 text-sm">Customized to your asset size</p>
               </div>
-              <ul className="space-y-4 mb-8 flex-grow">
+              <ul className="space-y-4 mb-8 flex-grow relative z-10">
                 {['Full Red Teaming', 'Dedicated Security Analyst', 'Zero-day Vulnerability Alerts', 'Takedown Services', 'Custom Integrations & Webhooks'].map((feature, i) => (
                   <li key={i} className="flex items-start gap-3 text-neutral-300 text-sm">
-                    <Check className="w-5 h-5 text-blue-600 dark:text-cyan shrink-0" />
+                    <Check className="w-5 h-5 text-cyan shrink-0" />
                     <span>{feature}</span>
                   </li>
                 ))}
               </ul>
-              <button className="w-full py-3 px-6 rounded-lg border border-black/10 dark:border-white/10 text-black dark:text-white font-semibold hover:bg-white/5 transition-colors focus:outline-none focus:ring-2 focus:ring-cyan focus:ring-offset-2 focus:ring-offset-black mt-auto">
+              <button className="w-full relative z-10 py-3 px-6 rounded-lg border border-white/10 text-white font-semibold hover:bg-white/5 transition-colors focus:outline-none focus:ring-2 focus:ring-cyan focus:ring-offset-2 focus:ring-offset-black mt-auto">
                 Request Quote
               </button>
             </motion.div>
@@ -786,39 +819,39 @@ export default function App() {
       </section>
 
       {/* Animated Stats Bar */}
-      <section className="py-16 bg-gray-100 dark:bg-[#050505] border-y border-black/5 dark:border-white/5 fade-in-section">
+      <section className="py-16 bg-black border-y border-white/5 fade-in-section text-white">
         <div className="max-w-7xl mx-auto px-6">
           <div className="grid grid-cols-2 lg:grid-cols-4">
-            <div className="p-6 text-center border-b border-r border-black/5 dark:border-white/5 lg:border-b-0">
-              <div className="text-4xl md:text-5xl font-bold text-blue-600 dark:text-cyan mb-2">
+            <div className="p-6 text-center border-b border-r border-white/5 lg:border-b-0">
+              <div className="text-4xl md:text-5xl font-bold text-cyan mb-2">
                 <StatCounter end={50} suffix="M+" delay={0} duration={1500} />
               </div>
-              <div className="text-neutral-600 dark:text-neutral-400 text-sm font-medium">Compromised credentials in database</div>
+              <div className="text-neutral-400 text-sm font-medium">Compromised credentials in database</div>
             </div>
-            <div className="p-6 text-center border-b border-black/5 dark:border-white/5 lg:border-b-0 lg:border-r">
-              <div className="text-4xl md:text-5xl font-bold text-blue-600 dark:text-cyan mb-2">
+            <div className="p-6 text-center border-b border-white/5 lg:border-b-0 lg:border-r">
+              <div className="text-4xl md:text-5xl font-bold text-cyan mb-2">
                 <StatCounter end={10000} suffix="+" delay={1000} duration={1500} />
               </div>
-              <div className="text-neutral-600 dark:text-neutral-400 text-sm font-medium">Dark web sources monitored</div>
+              <div className="text-neutral-400 text-sm font-medium">Dark web sources monitored</div>
             </div>
-            <div className="p-6 text-center border-r border-black/5 dark:border-white/5">
-              <div className="text-4xl md:text-5xl font-bold text-blue-600 dark:text-cyan mb-2">
+            <div className="p-6 text-center border-r border-white/5">
+              <div className="text-4xl md:text-5xl font-bold text-cyan mb-2">
                 <StatCounter end={15} prefix="<" suffix="min" delay={2000} duration={1500} />
               </div>
-              <div className="text-neutral-600 dark:text-neutral-400 text-sm font-medium">Average alert delivery time</div>
+              <div className="text-neutral-400 text-sm font-medium">Average alert delivery time</div>
             </div>
             <div className="p-6 text-center">
-              <div className="text-4xl md:text-5xl font-bold text-blue-600 dark:text-cyan mb-2">
+              <div className="text-4xl md:text-5xl font-bold text-cyan mb-2">
                 <StatCounter end={24} suffix="/7" delay={3000} duration={1500} />
               </div>
-              <div className="text-neutral-600 dark:text-neutral-400 text-sm font-medium">Live monitoring coverage</div>
+              <div className="text-neutral-400 text-sm font-medium">Live monitoring coverage</div>
             </div>
           </div>
         </div>
       </section>
 
       {/* CTA Section */}
-      <section className="py-32 relative overflow-hidden bg-white dark:bg-black fade-in-section">
+      <section className="py-32 relative overflow-hidden bg-black fade-in-section text-white border-b border-white/5">
         {/* Animated Data Flow Background */}
         <DataFlowBackground />
         
@@ -827,7 +860,7 @@ export default function App() {
         
         <div className="max-w-4xl mx-auto px-6 text-center relative z-10">
           {/* Live Scan Badge */}
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-cyan/10 border border-cyan/20 text-blue-600 dark:text-cyan text-sm font-medium mb-8">
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-cyan/10 border border-cyan/20 text-cyan text-sm font-medium mb-8">
             <span className="relative flex h-2 w-2">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-cyan"></span>
@@ -835,37 +868,51 @@ export default function App() {
             Live Scan Available
           </div>
 
-          <h2 className="text-[clamp(1.5rem,3.5vw,2.5rem)] font-bold mb-6 text-black dark:text-white">Is Your Data Already on the Dark Web?</h2>
-          <p className="text-xl text-neutral-600 dark:text-neutral-400 mb-12 max-w-2xl mx-auto">
+          <h2 className="text-[clamp(1.5rem,3.5vw,2.5rem)] font-bold mb-6 text-white">Is Your Data Already on the Dark Web?</h2>
+          <p className="text-xl text-neutral-400 mb-12 max-w-2xl mx-auto">
             Run a free exposure scan and find out in minutes. No commitment required.
           </p>
 
           {/* Form Area */}
           <div className="max-w-xl mx-auto relative group mt-8">
-            <form className="relative flex flex-col sm:flex-row items-center bg-gray-50 dark:bg-[#0A0A0A] p-1.5 rounded-full border border-black/10 dark:border-white/10 shadow-[0_0_30px_rgba(0,194,255,0.05)] focus-within:border-cyan/50 focus-within:shadow-[0_0_30px_rgba(0,194,255,0.1)] transition-all duration-300">
+            <form 
+              onSubmit={(e) => {
+                e.preventDefault();
+                const form = e.target as HTMLFormElement;
+                const domain = (form.elements[0] as HTMLInputElement).value;
+                
+                const toastId = toast.loading('Initiating deep scan for ' + domain + '...');
+                setTimeout(() => {
+                  toast.success('Scan complete. No recent breaches found for ' + domain, { id: toastId, duration: 4000 });
+                  form.reset();
+                }, 2500);
+              }}
+              className="relative flex flex-col sm:flex-row items-center cyber-glass-card p-1.5 rounded-full border border-white/10 focus-within:border-cyan/50 focus-within:shadow-[0_0_30px_rgba(0,194,255,0.1)] transition-all duration-300"
+            >
+              <div className="cyber-glass-card-glow text-cyan/20"></div>
               <input 
                 type="text" 
                 placeholder="Enter your company domain (e.g. yourcompany.com)" 
-                className="flex-1 bg-transparent text-black dark:text-white px-6 py-3 outline-none placeholder:text-neutral-600 w-full rounded-full"
+                className="flex-1 bg-transparent text-white px-6 py-3 outline-none placeholder:text-neutral-500 w-full rounded-full relative z-10"
                 required
                 aria-label="Enter your company domain"
               />
-              <button type="submit" className="bg-red hover:bg-red/90 text-black dark:text-white px-8 py-3 rounded-full font-bold transition-all duration-300 hover:scale-105 active:scale-95 glow-red whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-red focus:ring-offset-2 focus:ring-offset-black w-full sm:w-auto mt-2 sm:mt-0">
+              <button type="submit" className="bg-red hover:bg-red/90 text-white px-8 py-3 rounded-full font-bold transition-all duration-300 hover:scale-105 active:scale-95 glow-red whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-red focus:ring-offset-2 focus:ring-offset-black w-full sm:w-auto mt-2 sm:mt-0 relative z-10">
                 Scan Now
               </button>
             </form>
           </div>
 
           {/* Trust Badges */}
-          <div className="flex flex-wrap justify-center gap-x-8 gap-y-4 mt-10 text-sm text-neutral-500 dark:text-neutral-500">
+          <div className="flex flex-wrap justify-center gap-x-8 gap-y-4 mt-10 text-sm text-neutral-400">
             <div className="flex items-center gap-2">
-              <Lock className="w-4 h-4 text-blue-600 dark:text-cyan" /> No account required
+              <Lock className="w-4 h-4 text-cyan" /> No account required
             </div>
             <div className="flex items-center gap-2">
-              <Zap className="w-4 h-4 text-blue-600 dark:text-cyan" /> Results in under 60 seconds
+              <Zap className="w-4 h-4 text-cyan" /> Results in under 60 seconds
             </div>
             <div className="flex items-center gap-2">
-              <Shield className="w-4 h-4 text-blue-600 dark:text-cyan" /> Used by security teams across MENA
+              <Shield className="w-4 h-4 text-cyan" /> Used by security teams across MENA
             </div>
           </div>
 
@@ -876,29 +923,38 @@ export default function App() {
         </div>
       </section>
 
+      {/* Admin Panel Section */}
+      {user && profile?.role === 'Admin' && (
+        <section id="admin" className="py-24 relative bg-black border-t border-white/5 text-white">
+          <div className="max-w-7xl mx-auto px-6">
+            <AdminPanel />
+          </div>
+        </section>
+      )}
+
       {/* Footer */}
-      <footer className="bg-gray-100 dark:bg-[#050505] pt-20 pb-8 border-t border-black/5 dark:border-white/5">
+      <footer className="bg-[#050505] pt-20 pb-8 border-t border-white/5 text-white">
         <div className="max-w-7xl mx-auto px-6">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-12">
             {/* Column 1 - Brand */}
             <div className="space-y-6 lg:col-span-4">
               <div className="flex items-center gap-2">
-                <ShieldAlert className="w-6 h-6 text-blue-600 dark:text-cyan" />
-                <span className="text-xl font-bold tracking-tight text-black dark:text-white">
-                  EGY <span className="text-blue-600 dark:text-cyan">SAFE</span>
+                <ShieldAlert className="w-6 h-6 text-cyan" />
+                <span className="text-xl font-bold tracking-tight text-white">
+                  EGY <span className="text-cyan">SAFE</span>
                 </span>
               </div>
-              <p className="text-neutral-500 dark:text-neutral-500 text-sm leading-relaxed">
+              <p className="text-neutral-500 text-sm leading-relaxed">
                 Protecting Egyptian and MENA businesses from the threats they can't see.
               </p>
               <div className="flex gap-4">
-                <a href="#" className="text-neutral-500 dark:text-neutral-500 hover:text-blue-600 dark:hover:text-cyan focus:outline-none focus:text-blue-600 dark:focus:text-blue-600 dark:text-cyan transition-colors" aria-label="LinkedIn">
+                <a href="#" className="text-neutral-500 hover:text-cyan focus:outline-none focus:text-cyan transition-colors" aria-label="LinkedIn">
                   <Linkedin className="w-5 h-5" />
                 </a>
-                <a href="#" className="text-neutral-500 dark:text-neutral-500 hover:text-blue-600 dark:hover:text-cyan focus:outline-none focus:text-blue-600 dark:focus:text-blue-600 dark:text-cyan transition-colors" aria-label="Twitter">
+                <a href="#" className="text-neutral-500 hover:text-cyan focus:outline-none focus:text-cyan transition-colors" aria-label="Twitter">
                   <Twitter className="w-5 h-5" />
                 </a>
-                <a href="#" className="text-neutral-500 dark:text-neutral-500 hover:text-blue-600 dark:hover:text-cyan focus:outline-none focus:text-blue-600 dark:focus:text-blue-600 dark:text-cyan transition-colors" aria-label="Telegram">
+                <a href="#" className="text-neutral-500 hover:text-cyan focus:outline-none focus:text-cyan transition-colors" aria-label="Telegram">
                   <Send className="w-5 h-5" />
                 </a>
               </div>
@@ -906,11 +962,11 @@ export default function App() {
 
             {/* Column 2 - Services */}
             <div className="lg:col-span-2">
-              <h4 className="font-bold mb-6 text-black dark:text-white">Services</h4>
-              <ul className="space-y-3 text-sm text-neutral-500 dark:text-neutral-500">
-                <li><a href="#" className="hover:text-blue-600 dark:hover:text-cyan focus:outline-none focus:text-blue-600 dark:focus:text-blue-600 dark:text-cyan transition-colors">Dark Web Monitoring</a></li>
-                <li><a href="#" className="hover:text-blue-600 dark:hover:text-cyan focus:outline-none focus:text-blue-600 dark:focus:text-blue-600 dark:text-cyan transition-colors">Attack Surface Discovery</a></li>
-                <li><a href="#" className="hover:text-blue-600 dark:hover:text-cyan focus:outline-none focus:text-blue-600 dark:focus:text-blue-600 dark:text-cyan transition-colors">Security Assessment</a></li>
+              <h4 className="font-bold mb-6 text-white">Services</h4>
+              <ul className="space-y-3 text-sm text-neutral-500">
+                <li><a href="#" className="hover:text-cyan focus:outline-none focus:text-cyan transition-colors">Dark Web Monitoring</a></li>
+                <li><a href="#" className="hover:text-cyan focus:outline-none focus:text-cyan transition-colors">Attack Surface Discovery</a></li>
+                <li><a href="#" className="hover:text-cyan focus:outline-none focus:text-cyan transition-colors">Security Assessment</a></li>
                 <li><a href="#" className="hover:text-blue-600 dark:hover:text-cyan focus:outline-none focus:text-blue-600 dark:focus:text-blue-600 dark:text-cyan transition-colors">Red Teaming & Adversary Simulation</a></li>
                 <li><a href="#" className="hover:text-blue-600 dark:hover:text-cyan focus:outline-none focus:text-blue-600 dark:focus:text-blue-600 dark:text-cyan transition-colors">Network Penetration Testing</a></li>
                 <li><a href="#" className="hover:text-blue-600 dark:hover:text-cyan focus:outline-none focus:text-blue-600 dark:focus:text-blue-600 dark:text-cyan transition-colors">Web & Mobile App Testing</a></li>
@@ -919,25 +975,33 @@ export default function App() {
 
             {/* Column 3 - Company */}
             <div className="lg:col-span-2">
-              <h4 className="font-bold mb-6 text-black dark:text-white">Company</h4>
-              <ul className="space-y-3 text-sm text-neutral-500 dark:text-neutral-500">
-                <li><a href="#" className="hover:text-blue-600 dark:hover:text-cyan focus:outline-none focus:text-blue-600 dark:focus:text-blue-600 dark:text-cyan transition-colors">About Us</a></li>
-                <li><a href="#" className="hover:text-blue-600 dark:hover:text-cyan focus:outline-none focus:text-blue-600 dark:focus:text-blue-600 dark:text-cyan transition-colors">How It Works</a></li>
-                <li><a href="#" className="hover:text-blue-600 dark:hover:text-cyan focus:outline-none focus:text-blue-600 dark:focus:text-blue-600 dark:text-cyan transition-colors">Case Studies</a></li>
-                <li><a href="#" className="hover:text-blue-600 dark:hover:text-cyan focus:outline-none focus:text-blue-600 dark:focus:text-blue-600 dark:text-cyan transition-colors">Blog</a></li>
-                <li><a href="#" className="hover:text-blue-600 dark:hover:text-cyan focus:outline-none focus:text-blue-600 dark:focus:text-blue-600 dark:text-cyan transition-colors">Careers</a></li>
-                <li><a href="#" className="hover:text-blue-600 dark:hover:text-cyan focus:outline-none focus:text-blue-600 dark:focus:text-blue-600 dark:text-cyan transition-colors">Contact</a></li>
+              <h4 className="font-bold mb-6 text-white">Company</h4>
+              <ul className="space-y-3 text-sm text-neutral-500">
+                <li><a href="#" className="hover:text-cyan focus:outline-none focus:text-cyan transition-colors">About Us</a></li>
+                <li><a href="#" className="hover:text-cyan focus:outline-none focus:text-cyan transition-colors">How It Works</a></li>
+                <li><a href="#" className="hover:text-cyan focus:outline-none focus:text-cyan transition-colors">Case Studies</a></li>
+                <li><a href="#" className="hover:text-cyan focus:outline-none focus:text-cyan transition-colors">Blog</a></li>
+                <li><a href="#" className="hover:text-cyan focus:outline-none focus:text-cyan transition-colors">Careers</a></li>
+                <li><a href="#" className="hover:text-cyan focus:outline-none focus:text-cyan transition-colors">Contact</a></li>
               </ul>
             </div>
 
             {/* Column 4 - Contact Form */}
             <div className="lg:col-span-4">
-              <h4 className="font-bold mb-6 text-black dark:text-white">Send an Inquiry</h4>
-              <form className="space-y-3" onSubmit={(e) => { e.preventDefault(); alert('Message sent successfully!'); }}>
+              <h4 className="font-bold mb-6 text-white">Send an Inquiry</h4>
+              <form className="space-y-3" onSubmit={(e) => { 
+                e.preventDefault(); 
+                const form = e.target as HTMLFormElement;
+                const toastId = toast.loading('Sending your message...');
+                setTimeout(() => {
+                  toast.success('Message sent! We will contact you soon.', { id: toastId });
+                  form.reset();
+                }, 1000);
+              }}>
                 <input 
                   type="email" 
                   placeholder="Your Email Address" 
-                  className="w-full bg-gray-50 dark:bg-[#0A0A0A] border border-black/5 dark:border-white/5 rounded-lg px-4 py-2.5 text-sm text-black dark:text-white outline-none placeholder:text-neutral-600 focus:border-cyan/50 focus:ring-1 focus:ring-cyan/50 transition-all"
+                  className="w-full bg-[#0A0A0A] border border-white/5 rounded-lg px-4 py-2.5 text-sm text-white outline-none placeholder:text-neutral-500 focus:border-cyan/50 focus:ring-1 focus:ring-cyan/50 transition-all cyber-glass-card hover:bg-white/5"
                   required
                   aria-label="Your Email Address"
                 />
@@ -945,7 +1009,7 @@ export default function App() {
                   placeholder="How can we help you?" 
                   rows={3}
                   aria-label="How can we help you?"
-                  className="w-full bg-gray-50 dark:bg-[#0A0A0A] border border-black/5 dark:border-white/5 rounded-lg px-4 py-2.5 text-sm text-black dark:text-white outline-none placeholder:text-neutral-600 focus:border-cyan/50 focus:ring-1 focus:ring-cyan/50 transition-all resize-none"
+                  className="w-full bg-[#0A0A0A] border border-white/5 rounded-lg px-4 py-2.5 text-sm text-white outline-none placeholder:text-neutral-500 focus:border-cyan/50 focus:ring-1 focus:ring-cyan/50 transition-all resize-none cyber-glass-card hover:bg-white/5"
                   required
                 ></textarea>
                 <button type="submit" className="w-full px-6 py-2.5 bg-cyan text-black hover:bg-cyan/90 rounded-lg font-bold text-sm transition-all duration-300 hover:scale-105 active:scale-95 glow-cyan focus:outline-none focus:ring-2 focus:ring-cyan focus:ring-offset-2 focus:ring-offset-black">
@@ -956,11 +1020,11 @@ export default function App() {
           </div>
 
           {/* Bottom Bar */}
-          <div className="border-t border-black/5 dark:border-white/5 mt-16 pt-8 flex flex-col md:flex-row justify-between items-center gap-4 text-sm text-neutral-600">
+          <div className="border-t border-white/5 mt-16 pt-8 flex flex-col md:flex-row justify-between items-center gap-4 text-sm text-neutral-500">
             <div>© 2025 Egy Safe. All rights reserved.</div>
             <div className="flex gap-6">
-              <a href="#" className="hover:text-black dark:text-white focus:outline-none focus:text-black dark:text-white transition-colors">Privacy Policy</a>
-              <a href="#" className="hover:text-black dark:text-white focus:outline-none focus:text-black dark:text-white transition-colors">Terms of Service</a>
+              <a href="#" className="hover:text-white focus:outline-none focus:text-white transition-colors">Privacy Policy</a>
+              <a href="#" className="hover:text-white focus:outline-none focus:text-white transition-colors">Terms of Service</a>
             </div>
           </div>
         </div>
@@ -969,12 +1033,12 @@ export default function App() {
       {/* Scroll to Top Button */}
       <button
         onClick={scrollToTop}
-        className={`fixed bottom-24 right-6 p-3 rounded-full bg-gray-200 dark:bg-[#111] text-black dark:text-white border border-black/10 dark:border-white/10 shadow-[0_0_20px_rgba(0,0,0,0.4)] transition-all duration-300 z-40 hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-white/20 focus:ring-offset-2 focus:ring-offset-black ${
+        className={`fixed bottom-24 right-6 p-3 rounded-full bg-[#111] text-white border border-white/10 shadow-[0_0_20px_rgba(0,0,0,0.4)] transition-all duration-300 z-40 hover:bg-white/10 hover:border-cyan/50 focus:outline-none focus:ring-2 focus:ring-cyan focus:ring-offset-2 focus:ring-offset-black ${
           showScrollTop ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10 pointer-events-none'
         }`}
         aria-label="Scroll to top"
       >
-        <ArrowUp className="w-5 h-5" />
+        <ArrowUp className="w-5 h-5 text-cyan" />
       </button>
       
       <Chatbot activeSection={activeSection} />
@@ -991,12 +1055,12 @@ export default function App() {
       <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-40 transition-all duration-500 ${isScrolled ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10 pointer-events-none'}`}>
         <button 
            onClick={() => setIsConsultationModalOpen(true)}
-           className="bg-white dark:bg-[#111] border border-cyan/30 shadow-[0_0_20px_rgba(0,194,255,0.2)] rounded-full px-5 py-2.5 sm:px-6 sm:py-3 flex items-center gap-3 group hover:border-cyan hover:scale-105 transition-all focus:outline-none focus:ring-2 focus:ring-cyan"
+           className="bg-[#111]/90 backdrop-blur-md border border-cyan/30 shadow-[0_0_20px_rgba(0,194,255,0.2)] rounded-full px-5 py-2.5 sm:px-6 sm:py-3 flex items-center gap-3 group hover:border-cyan hover:shadow-[0_0_30px_rgba(0,194,255,0.4)] hover:scale-105 transition-all focus:outline-none focus:ring-2 focus:ring-cyan"
            aria-label="Request Enterprise Consultation"
         >
           <div className="w-2 h-2 rounded-full bg-cyan animate-pulse"></div>
-          <span className="font-bold text-xs sm:text-sm text-black dark:text-white group-hover:text-cyan transition-colors whitespace-nowrap">Request Enterprise Consultation</span>
-          <ArrowRight className="w-4 h-4 text-neutral-400 group-hover:text-cyan group-hover:translate-x-1 transition-all" />
+          <span className="font-bold text-xs sm:text-sm text-white group-hover:text-cyan transition-colors whitespace-nowrap">Request Enterprise Consultation</span>
+          <ArrowRight className="w-4 h-4 text-cyan/70 group-hover:text-cyan group-hover:translate-x-1 transition-all" />
         </button>
       </div>
     </div>

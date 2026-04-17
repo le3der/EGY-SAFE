@@ -1,0 +1,78 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() { return request.auth != null; }
+    function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+
+    function isBootstrappedAdmin() {
+      return isSignedIn() && request.auth.token.email_verified == true && request.auth.token.email == 'moashrafsy@gmail.com';
+    }
+
+    function isAdmin() { 
+      return isSignedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Admin'; 
+    }
+
+    function isEffectiveAdmin() {
+      return isBootstrappedAdmin() || isAdmin();
+    }
+
+    match /users/{userId} {
+      function isOwner() {
+        return isSignedIn() && request.auth.uid == userId;
+      }
+
+      function isValidUserProfile(data) {
+        return data.keys().hasAll(['email', 'role'])
+          && data.size() >= 2 && data.size() <= 4
+          && data.email is string && data.email.size() <= 256
+          && data.role is string && (data.role == 'Admin' || data.role == 'Analyst' || data.role == 'Viewer')
+          && (!('createdAt' in data) || data.createdAt is timestamp)
+          && (!('updatedAt' in data) || data.updatedAt is timestamp);
+      }
+
+      allow get: if isEffectiveAdmin() || isOwner();
+      allow list: if isEffectiveAdmin() || (isSignedIn() && resource.data.email == request.auth.token.email);
+
+      // Create: Users can only create their own profiles with Viewer role, unless they are the bootstrapped admin.
+      allow create: if isSignedIn()
+                    && request.auth.token.email_verified == true
+                    && isValidId(userId)
+                    && userId == request.auth.uid
+                    && isValidUserProfile(incoming())
+                    && incoming().email == request.auth.token.email
+                    && (incoming().role == 'Viewer' || (incoming().role == 'Admin' && isBootstrappedAdmin()));
+
+      // Update: Only effective Admins can update roles.
+      // And we use specific actions.
+      allow update: if isSignedIn() 
+                    && isEffectiveAdmin() 
+                    && isValidUserProfile(incoming())
+                    && incoming().diff(existing()).affectedKeys().hasOnly(['role', 'updatedAt'])
+                    && incoming().email == existing().email;
+    }
+
+    match /logs/{logId} {
+      function isValidLog(data) {
+        return data.keys().hasAll(['userId', 'action', 'createdAt'])
+          && data.size() >= 3 && data.size() <= 4
+          && data.userId is string && data.userId.size() <= 128
+          && data.action is string && data.action.size() <= 256
+          && (!('details' in data) || data.details is string)
+          && data.createdAt is timestamp;
+      }
+
+      allow get, list: if isEffectiveAdmin();
+      allow create: if isSignedIn()
+                    && request.auth.token.email_verified == true
+                    && isValidLog(incoming())
+                    && incoming().userId == request.auth.uid;
+      allow update, delete: if false; // Logs are immutable
+    }
+  }
+}

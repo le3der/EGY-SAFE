@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, Building2, User, Mail, Phone, MessageSquare, ArrowRight, CheckCircle2 } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 interface ConsultationModalProps {
   isOpen: boolean;
@@ -14,10 +15,14 @@ export default function ConsultationModal({ isOpen, onClose }: ConsultationModal
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
+    
+    const toastId = toast.loading('Submitting consultation request...');
+    
     // Simulate API call
     setTimeout(() => {
       setIsSubmitting(false);
       setIsSuccess(true);
+      toast.success('Request received successfully!', { id: toastId });
       setTimeout(() => {
         setIsSuccess(false);
         onClose();

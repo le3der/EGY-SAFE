@@ -1,0 +1,38 @@
+{
+  "entities": {
+    "userProfile": {
+      "title": "User Profile",
+      "description": "Stores user roles and metadata.",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string" },
+        "role": { "type": "string", "enum": ["Admin", "Analyst", "Viewer"] },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["email", "role"]
+    },
+    "auditLog": {
+      "title": "Audit Log",
+      "description": "Stores system event logs.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "action": { "type": "string" },
+        "details": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["userId", "action", "createdAt"]
+    }
+  },
+  "firestore": {
+    "users/{userId}": {
+      "schema": { "$ref": "#/entities/userProfile" },
+      "description": "User profiles keyed by Firebase Auth UID."
+    },
+    "logs/{logId}": {
+      "schema": { "$ref": "#/entities/auditLog" },
+      "description": "System audit logs containing sensitive administrative actions."
+    }
+  }
+}

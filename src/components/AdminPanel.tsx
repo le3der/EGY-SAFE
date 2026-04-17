@@ -1,0 +1,401 @@
+import React, { useEffect, useState } from 'react';
+import { collection, getDocs, doc, updateDoc, serverTimestamp, query, orderBy, limit } from 'firebase/firestore';
+import { multiFactor } from 'firebase/auth';
+import { db } from '../lib/firebase';
+import { useAuth, UserRole } from '../context/AuthContext';
+import { logUserAction } from '../lib/audit';
+import { Shield, Users, UserCog, Check, Smartphone, KeyRound, ShieldAlert, FileText, Download, KeySquare, Trash2, Save } from 'lucide-react';
+import toast from 'react-hot-toast';
+import MfaSetupModal from './MfaSetupModal';
+
+interface UserData {
+  id: string;
+  email: string;
+  role: UserRole;
+  createdAt?: any;
+}
+
+interface AuditLogData {
+  id: string;
+  action: string;
+  details?: string;
+  createdAt: any;
+  userId: string;
+}
+
+export default function AdminPanel() {
+  const { user, profile, loading: authLoading } = useAuth();
+  const [users, setUsers] = useState<UserData[]>([]);
+  const [logs, setLogs] = useState<AuditLogData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [isMfaModalOpen, setIsMfaModalOpen] = useState(false);
+  const [enrolledFactors, setEnrolledFactors] = useState<any[]>([]);
+  
+  // API Keys state
+  const [hasVtKey, setHasVtKey] = useState(false);
+  const [vtKeyInput, setVtKeyInput] = useState('');
+  const [isSavingKey, setIsSavingKey] = useState(false);
+
+  useEffect(() => {
+    if (profile?.role === 'Admin') {
+      fetchUsers();
+      fetchLogs();
+      if (user) {
+        checkVaultedKey('virustotal');
+      }
+    } else {
+      setLoading(false);
+    }
+  }, [profile]);
+
+  useEffect(() => {
+    if (user) {
+      try {
+        const factors = multiFactor(user).enrolledFactors || [];
+        setEnrolledFactors(factors);
+      } catch (e) {
+        console.error("MFA check failed", e);
+      }
+    }
+  }, [user, isMfaModalOpen]);
+
+  const checkVaultedKey = async (provider: string) => {
+    if (!user) return;
+    try {
+      const res = await fetch(`/api/vault/keys/${user.uid}/${provider}`);
+      const data = await res.json();
+      if (data.hasKey) {
+        if (provider === 'virustotal') setHasVtKey(true);
+      }
+    } catch (error) {
+      console.error('Failed to check vaulted key', error);
+    }
+  };
+
+  const saveApiKey = async (provider: string, apiKey: string) => {
+    if (!user || !apiKey) return;
+    setIsSavingKey(true);
+    try {
+      const res = await fetch('/api/vault/keys', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.uid, provider, apiKey })
+      });
+      
+      const data = await res.json();
+      if (data.success) {
+        toast.success(`${provider} API Key securely vaulted`);
+        if (provider === 'virustotal') {
+          setHasVtKey(true);
+          setVtKeyInput('');
+        }
+        await logUserAction('API Key Updated', `Securely updated ${provider} API key`);
+      } else {
+        throw new Error(data.error);
+      }
+    } catch (error: any) {
+      toast.error('Failed to save key: ' + error.message);
+    } finally {
+      setIsSavingKey(false);
+    }
+  };
+
+  const deleteApiKey = async (provider: string) => {
+    if (!user) return;
+    try {
+      const res = await fetch(`/api/vault/keys/${user.uid}/${provider}`, {
+        method: 'DELETE'
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success(`${provider} API Key erased`);
+        if (provider === 'virustotal') setHasVtKey(false);
+        await logUserAction('API Key Deleted', `Erased ${provider} API key from vault`);
+      }
+    } catch (error: any) {
+      toast.error('Failed to delete key: ' + error.message);
+    }
+  };
+
+  const fetchUsers = async () => {
+    try {
+      const querySnapshot = await getDocs(collection(db, 'users'));
+      const fetchedUsers: UserData[] = [];
+      querySnapshot.forEach((doc) => {
+        fetchedUsers.push({ id: doc.id, ...doc.data() } as UserData);
+      });
+      setUsers(fetchedUsers);
+    } catch (error: any) {
+      toast.error("Failed to load users: " + error.message);
+    } finally {
+      if(loading) setLoading(false);
+    }
+  };
+
+  const fetchLogs = async () => {
+    try {
+      const logsQuery = query(collection(db, 'logs'), orderBy('createdAt', 'desc'), limit(50));
+      const querySnapshot = await getDocs(logsQuery);
+      const fetchedLogs: AuditLogData[] = [];
+      querySnapshot.forEach((doc) => {
+        fetchedLogs.push({ id: doc.id, ...doc.data() } as AuditLogData);
+      });
+      setLogs(fetchedLogs);
+    } catch (error: any) {
+      console.error("Failed to load logs:", error);
+    }
+  };
+
+  const handleRoleChangeFix = async (userId: string, newRole: UserRole) => {
+    try {
+      const toastId = toast.loading('Updating role...');
+      const userRef = doc(db, 'users', userId);
+      await updateDoc(userRef, { 
+        role: newRole, 
+        updatedAt: serverTimestamp()
+      });
+      
+      setUsers(users.map(u => u.id === userId ? { ...u, role: newRole } : u));
+      toast.success('Role updated successfully', { id: toastId });
+      
+      const targetUser = users.find(u => u.id === userId);
+      await logUserAction('Role Update', `Role updated to ${newRole} for user ${targetUser?.email}`);
+      fetchLogs();
+    } catch (error: any) {
+      toast.error('Failed to update role: ' + error.message);
+    }
+  };
+
+  const handleUnenrollMfa = async (uid: string) => {
+    try {
+      if (!user) return;
+      await multiFactor(user).unenroll(uid);
+      setEnrolledFactors(multiFactor(user).enrolledFactors || []);
+      toast.success('Removed 2FA method');
+    } catch (error: any) {
+      toast.error('Failed to remove 2FA: ' + error.message);
+    }
+  };
+
+  if (authLoading || loading) {
+    return <div className="py-20 text-center text-neutral-500">Loading access control...</div>;
+  }
+
+  if (profile?.role !== 'Admin') {
+    return (
+      <div className="py-20 flex flex-col items-center justify-center text-center">
+        <Shield className="w-16 h-16 text-neutral-400 mb-4" />
+        <h2 className="text-xl font-bold dark:text-white">Access Denied</h2>
+        <p className="text-neutral-500 mt-2">You must be an Administrator to view this panel.</p>
+        <p className="text-sm border border-cyan/30 text-cyan px-4 py-2 mt-4 rounded">Your Current Role: {profile?.role || 'Guest'}</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-6 sm:p-10 max-w-5xl mx-auto space-y-12">
+      {/* API Integrations Vault */}
+      <div>
+        <div className="flex items-center gap-3 mb-6">
+          <KeySquare className="w-8 h-8 text-cyan" />
+          <h2 className="text-2xl font-bold dark:text-white">Integration Vault</h2>
+        </div>
+        <p className="text-neutral-600 dark:text-neutral-400 mb-6 max-w-3xl text-sm">
+          Securely vault your 3rd-party API credentials. Keys are symmetrically encrypted on the server utilizing AES-256 before being stored and are never remitted nakedly back to the client.
+        </p>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="bg-white dark:bg-[#111] border border-black/10 dark:border-white/10 rounded-xl p-6">
+            <div className="flex items-start justify-between mb-4">
+              <div>
+                <h3 className="text-lg font-bold text-black dark:text-offwhite">VirusTotal API</h3>
+                <p className="text-xs text-neutral-500 mt-1">Required for advanced file correlation in the incident feed.</p>
+              </div>
+              <div className={`px-2 py-1 rounded text-[10px] font-bold tracking-widest uppercase border ${hasVtKey ? 'bg-green-500/10 text-green-500 border-green-500/20' : 'bg-red/10 text-red border-red/20'}`}>
+                {hasVtKey ? 'VAULTED' : 'UNCONFIGURED'}
+              </div>
+            </div>
+            
+            {hasVtKey ? (
+              <div className="flex items-center justify-between bg-black/5 dark:bg-white/5 p-3 rounded-lg border border-black/5 dark:border-white/5">
+                <div className="text-sm font-mono text-neutral-500">
+                  ••••••••••••••••••••••••••••••••
+                </div>
+                <button 
+                  onClick={() => deleteApiKey('virustotal')}
+                  className="p-2 text-red hover:bg-red/10 rounded transition-colors"
+                  title="Erase Vaulted Key"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-3">
+                <input 
+                  type="password" 
+                  value={vtKeyInput}
+                  onChange={(e) => setVtKeyInput(e.target.value)}
+                  placeholder="Paste Enterprise v3 API Key"
+                  className="w-full bg-black/5 dark:bg-[#050505] border border-black/10 dark:border-white/10 rounded-lg px-4 py-2 text-sm text-black dark:text-white placeholder:text-neutral-500 focus:outline-none focus:border-cyan"
+                />
+                <button 
+                  onClick={() => saveApiKey('virustotal', vtKeyInput)}
+                  disabled={!vtKeyInput.trim() || isSavingKey}
+                  className="flex items-center justify-center gap-2 px-4 py-2 bg-cyan/10 hover:bg-cyan/20 text-cyan disabled:opacity-50 disabled:cursor-not-allowed rounded-lg font-bold text-sm transition-all"
+                >
+                  <Save className="w-4 h-4" />
+                  {isSavingKey ? 'Encrypting...' : 'Secure & Vault Key'}
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Security Settings Section */}
+      <div className="pt-8 border-t border-black/5 dark:border-white/5">
+        <div className="flex items-center gap-3 mb-6">
+          <ShieldAlert className="w-8 h-8 text-red" />
+          <h2 className="text-2xl font-bold dark:text-white">Your Security Settings</h2>
+        </div>
+        
+        <div className="bg-white dark:bg-[#0A0A0A] border border-black/10 dark:border-white/10 rounded-2xl p-6 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div>
+            <h3 className="text-lg font-bold text-black dark:text-white mb-2">Two-Factor Authentication (2FA)</h3>
+            <p className="text-sm text-neutral-600 dark:text-neutral-400 max-w-xl">
+              Add an extra layer of security to your admin account. Manage your authenticator app settings, view enrolled devices, and enforce strict login requirements.
+            </p>
+          </div>
+
+          <div className="flex-shrink-0">
+            <button 
+              onClick={() => setIsMfaModalOpen(true)}
+              className="inline-flex items-center justify-center gap-2 bg-cyan text-black px-6 py-3 rounded-lg font-bold hover:bg-cyan/90 transition-colors shadow-[0_0_15px_rgba(0,194,255,0.2)] whitespace-nowrap w-full md:w-auto focus:outline-none focus:ring-2 focus:ring-cyan focus:ring-offset-2 focus:ring-offset-black"
+            >
+              <KeyRound className="w-4 h-4" /> 
+              {enrolledFactors.length > 0 ? 'Manage 2FA Settings' : 'Enroll in 2FA'}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* User Management Section */}
+      <div>
+        <div className="flex items-center gap-3 mb-6">
+          <UserCog className="w-8 h-8 text-cyan" />
+          <h2 className="text-2xl font-bold dark:text-white">User Role Management</h2>
+        </div>
+
+        <div className="bg-white dark:bg-[#0A0A0A] border border-black/10 dark:border-white/10 rounded-2xl overflow-hidden shadow-xl">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-gray-100 dark:bg-[#111] border-b border-black/5 dark:border-white/5">
+                  <th className="px-6 py-4 text-xs font-semibold text-neutral-500 uppercase tracking-wider">User Account</th>
+                  <th className="px-6 py-4 text-xs font-semibold text-neutral-500 uppercase tracking-wider">Assigned Role</th>
+                  <th className="px-6 py-4 text-xs font-semibold text-neutral-500 uppercase tracking-wider text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-black/5 dark:divide-white/5">
+                {users.map(userItem => (
+                  <tr key={userItem.id} className="hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-cyan/10 flex items-center justify-center text-cyan font-bold tracking-wider uppercase text-xs">
+                          {userItem.email.substring(0, 2)}
+                        </div>
+                        <div className="font-medium text-black dark:text-white">{userItem.email}</div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold tracking-wider uppercase border 
+                        ${userItem.role === 'Admin' ? 'border-purple-500/30 text-purple-500 bg-purple-500/10' : 
+                          userItem.role === 'Analyst' ? 'border-cyan/30 text-cyan bg-cyan/10' : 
+                          'border-neutral-500/30 text-neutral-500 bg-neutral-500/10'}`}>
+                        {userItem.role}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <select
+                        value={userItem.role}
+                        onChange={(e) => handleRoleChangeFix(userItem.id, e.target.value as UserRole)}
+                        className="bg-gray-50 dark:bg-[#111] border border-black/10 dark:border-white/10 rounded-lg px-3 py-1.5 text-sm text-black dark:text-white outline-none focus:border-cyan disabled:opacity-50"
+                        disabled={profile?.email === userItem.email} // Prevent changing own role for safety
+                      >
+                        <option value="Viewer">Viewer</option>
+                        <option value="Analyst">Analyst</option>
+                        <option value="Admin">Admin</option>
+                      </select>
+                    </td>
+                  </tr>
+                ))}
+                {users.length === 0 && (
+                  <tr>
+                    <td colSpan={3} className="px-6 py-8 text-center text-neutral-500">
+                      No users found.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      {/* System Logs Section */}
+      <div className="pt-8 border-t border-black/5 dark:border-white/5">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <FileText className="w-8 h-8 text-cyan" />
+            <h2 className="text-2xl font-bold dark:text-white">System Audit Logs</h2>
+          </div>
+          <button 
+            onClick={fetchLogs}
+            className="text-sm text-neutral-500 hover:text-black dark:hover:text-white transition-colors"
+          >
+            Refresh
+          </button>
+        </div>
+
+        <div className="bg-white dark:bg-[#0A0A0A] border border-black/10 dark:border-white/10 rounded-2xl overflow-hidden shadow-xl">
+          <div className="overflow-x-auto max-h-[400px]">
+            <table className="w-full text-left border-collapse">
+              <thead className="sticky top-0 bg-gray-100 dark:bg-[#111] border-b border-black/5 dark:border-white/5 z-10">
+                <tr>
+                  <th className="px-6 py-4 text-xs font-semibold text-neutral-500 uppercase tracking-wider">Timestamp</th>
+                  <th className="px-6 py-4 text-xs font-semibold text-neutral-500 uppercase tracking-wider">Action</th>
+                  <th className="px-6 py-4 text-xs font-semibold text-neutral-500 uppercase tracking-wider">Details</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-black/5 dark:divide-white/5">
+                {logs.map(log => (
+                  <tr key={log.id} className="hover:bg-gray-50 dark:hover:bg-white/5 transition-colors text-sm">
+                    <td className="px-6 py-4 whitespace-nowrap text-neutral-500 font-mono">
+                      {log.createdAt ? new Date(log.createdAt.toDate ? log.createdAt.toDate() : log.createdAt).toLocaleString() : 'Just now'}
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className="font-medium text-black dark:text-white">{log.action}</span>
+                    </td>
+                    <td className="px-6 py-4 text-neutral-600 dark:text-neutral-400">
+                      {log.details || '-'}
+                    </td>
+                  </tr>
+                ))}
+                {logs.length === 0 && (
+                  <tr>
+                    <td colSpan={3} className="px-6 py-8 text-center text-neutral-500">
+                      No logs found.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      
+      {/* 2FA Setup Modal */}
+      <MfaSetupModal isOpen={isMfaModalOpen} onClose={() => setIsMfaModalOpen(false)} />
+    </div>
+  );
+}
