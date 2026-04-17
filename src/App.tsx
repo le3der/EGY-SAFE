@@ -5,6 +5,7 @@ import Chatbot from './components/Chatbot';
 import LiveThreatFeed from './components/LiveThreatFeed';
 import SecurityAssessmentModal from './components/SecurityAssessmentModal';
 import DataFlowBackground from './components/DataFlowBackground';
+import ConsultationModal from './components/ConsultationModal';
 import { Toaster } from 'react-hot-toast';
 
 const carouselItems = [
@@ -59,13 +60,38 @@ export default function App() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [isAssessmentModalOpen, setIsAssessmentModalOpen] = useState(false);
+  const [isConsultationModalOpen, setIsConsultationModalOpen] = useState(false);
   
   // Services filtering & carousel state
   const [activeFilter, setActiveFilter] = useState('ALL');
   const [activeCarouselIndex, setActiveCarouselIndex] = useState(0);
+  const [activeSection, setActiveSection] = useState<string>('hero');
   
   // Theme state
   const [theme, setTheme] = useState<'light' | 'dark'>('dark');
+
+  // Track active section for Chatbot
+  useEffect(() => {
+    const observer = new IntersectionObserver((entries) => {
+      let currentSection = activeSection;
+      let maxRatio = 0;
+      entries.forEach(entry => {
+        if (entry.isIntersecting && entry.intersectionRatio > maxRatio) {
+          maxRatio = entry.intersectionRatio;
+          const sectionId = entry.target.id || entry.target.getAttribute('data-section-id') || 'hero';
+          if (sectionId) currentSection = sectionId;
+        }
+      });
+      if (maxRatio > 0 && currentSection !== activeSection) {
+        setActiveSection(currentSection);
+      }
+    }, { threshold: [0.1, 0.5, 0.9] });
+
+    const sections = document.querySelectorAll('section, main, header');
+    sections.forEach(section => observer.observe(section));
+
+    return () => observer.disconnect();
+  }, [activeSection]);
 
   // Initialize theme from localStorage or system preference
   useEffect(() => {
@@ -951,11 +977,28 @@ export default function App() {
         <ArrowUp className="w-5 h-5" />
       </button>
       
-      <Chatbot />
+      <Chatbot activeSection={activeSection} />
       <SecurityAssessmentModal 
         isOpen={isAssessmentModalOpen} 
         onClose={() => setIsAssessmentModalOpen(false)} 
       />
+      <ConsultationModal 
+        isOpen={isConsultationModalOpen}
+        onClose={() => setIsConsultationModalOpen(false)}
+      />
+
+      {/* Sticky Enterprise Consultation Pill */}
+      <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-40 transition-all duration-500 ${isScrolled ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10 pointer-events-none'}`}>
+        <button 
+           onClick={() => setIsConsultationModalOpen(true)}
+           className="bg-white dark:bg-[#111] border border-cyan/30 shadow-[0_0_20px_rgba(0,194,255,0.2)] rounded-full px-5 py-2.5 sm:px-6 sm:py-3 flex items-center gap-3 group hover:border-cyan hover:scale-105 transition-all focus:outline-none focus:ring-2 focus:ring-cyan"
+           aria-label="Request Enterprise Consultation"
+        >
+          <div className="w-2 h-2 rounded-full bg-cyan animate-pulse"></div>
+          <span className="font-bold text-xs sm:text-sm text-black dark:text-white group-hover:text-cyan transition-colors whitespace-nowrap">Request Enterprise Consultation</span>
+          <ArrowRight className="w-4 h-4 text-neutral-400 group-hover:text-cyan group-hover:translate-x-1 transition-all" />
+        </button>
+      </div>
     </div>
   );
 }

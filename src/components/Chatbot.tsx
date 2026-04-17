@@ -4,8 +4,13 @@ import { MessageSquare, X, Send, Bot, User, Loader2, Headphones, ArrowRight } fr
 import { GoogleGenAI } from '@google/genai';
 import Markdown from 'react-markdown';
 
-// Initialize the API
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+// Initialize the API safely to prevent global crashes if the API key is missing on Vercel
+let ai: any = null;
+try {
+  ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || 'MISSING_API_KEY' });
+} catch (e) {
+  console.warn("GoogleGenAI failed to initialize. Make sure GEMINI_API_KEY is set in Vercel.");
+}
 
 type Message = {
   id: string;
@@ -13,7 +18,11 @@ type Message = {
   content: string;
 };
 
-export default function Chatbot() {
+interface ChatbotProps {
+  activeSection?: string;
+}
+
+export default function Chatbot({ activeSection = 'hero' }: ChatbotProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isLiveAgent, setIsLiveAgent] = useState(false);
   const [agentName, setAgentName] = useState('');
@@ -27,6 +36,7 @@ export default function Chatbot() {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isStreaming, setIsStreaming] = useState(false); // Tracks active token streaming
+  const [hasPromptedContext, setHasPromptedContext] = useState<Record<string, boolean>>({});
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
   // Store the chat session ref
@@ -34,11 +44,12 @@ export default function Chatbot() {
 
   // Initialize chat session on mount
   useEffect(() => {
+    if (!ai) return;
     try {
       chatRef.current = ai.chats.create({
         model: "gemini-3-flash-preview",
         config: {
-          systemInstruction: "You are an expert cybersecurity AI assistant for Egy Safe, an Egyptian enterprise threat intelligence and attack surface management startup. You specialize in dark web monitoring, penetration testing, and red teaming. You provide professional, accurate, and concise answers about cybersecurity threats and how Egy Safe's services can mitigate them.",
+          systemInstruction: `You are an expert cybersecurity AI assistant for Egy Safe, an Egyptian enterprise threat intelligence and attack surface management startup. You specialize in dark web monitoring, penetration testing, and red teaming. You provide professional, accurate, and concise answers about cybersecurity threats and how Egy Safe's services can mitigate them. The user is currently viewing the '${activeSection}' section of the website. Tailor your responses to refer to the context of the '${activeSection}' section if relevant.`,
           temperature: 0.5,
         }
       });
@@ -46,6 +57,48 @@ export default function Chatbot() {
       console.error("Failed to initialize chat:", e);
     }
   }, []);
+
+  // Update system instructions inside the chat ref when section changes
+  useEffect(() => {
+    if (chatRef.current && !isLiveAgent && ai) {
+       chatRef.current = ai.chats.create({
+        model: "gemini-3-flash-preview",
+        history: chatRef.current.history || [], // Keep message history!
+        config: {
+          systemInstruction: `You are an expert cybersecurity AI assistant for Egy Safe, an Egyptian enterprise threat intelligence and attack surface management startup. You specialize in dark web monitoring, penetration testing, and red teaming. You provide professional, accurate, and concise answers about cybersecurity threats. The user is currently viewing the '${activeSection}' section of the website. If the user asks a general question (like "tell me more"), assume they mean the '${activeSection}' section. Proactively offer tailored information or ask questions related to this section if appropriate.`,
+          temperature: 0.5,
+        }
+      });
+    }
+  }, [activeSection, isLiveAgent]);
+
+  // Proactive contextual pop-ups based on section
+  useEffect(() => {
+    if (activeSection !== 'hero' && !hasPromptedContext[activeSection] && !isLiveAgent) {
+      setHasPromptedContext(prev => ({ ...prev, [activeSection]: true }));
+      
+      let contextualMessage = "";
+      if (activeSection === 'services') {
+        contextualMessage = "I see you're looking at our Services. Would you like me to explain the difference between Dark Web Monitoring and our Attack Surface Discovery?";
+      } else if (activeSection === 'pricing') {
+        contextualMessage = "Reviewing our pricing plans? I can help you decide whether the Advanced or Enterprise tier makes more sense for your organization size.";
+      } else if (activeSection === 'how-it-works') {
+        contextualMessage = "Are you curious about how our C2 Server Intelligence works? I can explain our automated processing pipeline in more detail.";
+      }
+
+      if (contextualMessage && messages.length <= 1) { // Only prompt if they haven't engaged much
+        setTimeout(() => {
+           setMessages(prev => [...prev, {
+             id: `context-${activeSection}`,
+             role: 'assistant',
+             content: contextualMessage
+           }]);
+           // Automatically open chat to draw attention (optional, user preference)
+           // setIsOpen(true);
+        }, 3000);
+      }
+    }
+  }, [activeSection, isLiveAgent, hasPromptedContext, messages.length]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -77,13 +130,15 @@ export default function Chatbot() {
       }]);
 
       // Re-initialize Chat AI to act as Sarah
-      chatRef.current = ai.chats.create({
-        model: "gemini-3-flash-preview",
-        config: {
-          systemInstruction: "You are Sarah, a human support agent at Egy Safe, an Egyptian enterprise threat intelligence startup. You are warm, professional, and very helpful. The user specifically requested to speak to a human, so absolutely DO NOT mention that you are an AI. You are a real human working in the support center. Provide concise, helpful support.",
-          temperature: 0.7,
-        }
-      });
+      if (ai) {
+        chatRef.current = ai.chats.create({
+          model: "gemini-3-flash-preview",
+          config: {
+            systemInstruction: "You are Sarah, a human support agent at Egy Safe, an Egyptian enterprise threat intelligence startup. You are warm, professional, and very helpful. The user specifically requested to speak to a human, so absolutely DO NOT mention that you are an AI. You are a real human working in the support center. Provide concise, helpful support.",
+            temperature: 0.7,
+          }
+        });
+      }
     }, 2500);
   };
 

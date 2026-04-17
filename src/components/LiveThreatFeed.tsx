@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ShieldAlert, AlertTriangle, AlertCircle, Activity, Globe, Lock, Loader2 } from 'lucide-react';
+import { ShieldAlert, AlertTriangle, AlertCircle, Activity, Globe, Lock, Loader2, Key, Database, FileWarning, Mail, Bomb, Bug } from 'lucide-react';
 import { io } from 'socket.io-client';
 import toast from 'react-hot-toast';
 
@@ -125,6 +125,16 @@ export default function LiveThreatFeed() {
       case 'HIGH': return <AlertTriangle className="w-4 h-4 text-orange-500" />;
       case 'MEDIUM': return <AlertCircle className="w-4 h-4 text-yellow-500" />;
     }
+  };
+
+  const getThreatTypeIcon = (type: string) => {
+    const lowerType = type.toLowerCase();
+    if (lowerType.includes('credential') || lowerType.includes('password')) return <Key className="w-3.5 h-3.5 text-neutral-400" />;
+    if (lowerType.includes('database') || lowerType.includes('dump')) return <Database className="w-3.5 h-3.5 text-neutral-400" />;
+    if (lowerType.includes('ransomware') || lowerType.includes('malware')) return <Bomb className="w-3.5 h-3.5 text-neutral-400" />;
+    if (lowerType.includes('phishing') || lowerType.includes('domain')) return <Mail className="w-3.5 h-3.5 text-neutral-400" />;
+    if (lowerType.includes('vulnerability') || lowerType.includes('cve') || lowerType.includes('exploit')) return <Bug className="w-3.5 h-3.5 text-neutral-400" />;
+    return <FileWarning className="w-3.5 h-3.5 text-neutral-400" />;
   };
 
   const formatTime = (dateStrOrDate: string | Date) => {
@@ -275,9 +285,12 @@ export default function LiveThreatFeed() {
                         <span className={`px-2 py-0.5 rounded text-[10px] font-bold tracking-wider uppercase border ${getSeverityColor(threat.severity)}`}>
                           {threat.severity}
                         </span>
-                        <span className="text-sm font-bold text-black dark:text-offwhite truncate">
-                          {threat.type}
-                        </span>
+                        <div className="flex items-center gap-1.5 text-black dark:text-offwhite">
+                          {getThreatTypeIcon(threat.type)}
+                          <span className="text-sm font-bold truncate">
+                            {threat.type}
+                          </span>
+                        </div>
                       </div>
                       
                       <p className="text-sm text-neutral-600 dark:text-neutral-400 mb-2 font-sans">
