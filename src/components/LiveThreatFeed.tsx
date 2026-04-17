@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ShieldAlert, AlertTriangle, AlertCircle, Activity, Globe, Lock, Loader2, Key, Database, FileWarning, Mail, Bomb, Bug, Download } from 'lucide-react';
+import { ShieldAlert, AlertTriangle, AlertCircle, Activity, Globe, Lock, Loader2, Key, Database, FileWarning, Mail, Bomb, Bug, Download, Play, Pause, RotateCcw } from 'lucide-react';
 import { io } from 'socket.io-client';
 import { logUserAction } from '../lib/audit';
 import { useAuth } from '../context/AuthContext';
@@ -245,7 +245,7 @@ export default function LiveThreatFeed() {
             </div>
           </div>
 
-          <div className="flex items-center gap-4 mt-6">
+          <div className="flex flex-wrap items-center gap-3 mt-6">
             <button 
               onClick={() => {
                 if (!isAnalystOrAdmin) {
@@ -256,13 +256,30 @@ export default function LiveThreatFeed() {
               }}
               aria-label={isPaused ? "Resume Live Feed" : "Pause Live Feed"}
               aria-pressed={isPaused}
-              className="text-sm font-medium text-cyan hover:text-cyan/80 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan rounded"
+              className={`inline-flex items-center gap-1.5 px-3 py-2 border rounded-lg text-sm font-medium transition-colors focus:outline-none ${isPaused ? 'bg-yellow-500/10 border-yellow-500/30 text-yellow-500 hover:bg-yellow-500/20' : 'bg-cyan/10 border-cyan/30 text-cyan hover:bg-cyan/20'}`}
             >
-              {isPaused ? '▶ Resume Live Feed' : '⏸ Pause Live Feed'}
+              {isPaused ? <Play className="w-4 h-4" /> : <Pause className="w-4 h-4" />}
+              {isPaused ? 'Resume Feed' : 'Pause Feed'}
+            </button>
+            <button 
+              onClick={() => {
+                if (!isAnalystOrAdmin) {
+                  toast.error('You must be an Analyst or Admin to reset the feed.');
+                  return;
+                }
+                setThreats([]);
+                toast.success("Threat feed reset.");
+                logUserAction('Data Modification', 'Reset Global Threat Feed');
+              }}
+              aria-label="Reset Live Feed"
+              className="inline-flex items-center gap-1.5 px-3 py-2 border border-black/10 dark:border-white/10 bg-gray-50 dark:bg-white/5 rounded-lg text-sm font-medium text-neutral-600 dark:text-neutral-400 hover:text-black dark:hover:text-white transition-colors focus:outline-none"
+            >
+              <RotateCcw className="w-4 h-4" />
+              Reset Feed
             </button>
             <button
               onClick={exportToCSV}
-              className="inline-flex items-center gap-1.5 text-sm font-medium text-neutral-500 hover:text-black dark:hover:text-white transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan rounded"
+              className="inline-flex items-center gap-1.5 px-3 py-2 border border-black/10 dark:border-white/10 bg-gray-50 dark:bg-white/5 rounded-lg text-sm font-medium text-neutral-600 dark:text-neutral-400 hover:text-black dark:hover:text-white transition-colors focus:outline-none"
             >
               <Download className="w-4 h-4" /> Export CSV
             </button>
@@ -276,15 +293,47 @@ export default function LiveThreatFeed() {
             {/* Window Controls & Filters */}
             <div className="bg-[#111] border-b border-white/5">
               <div className="px-4 py-3 flex flex-col xl:flex-row xl:items-center justify-between gap-4">
-                <div className="flex items-center justify-between xl:justify-start gap-4">
+                <div className="flex items-center justify-between xl:justify-start gap-4 w-full xl:w-auto">
                   <div className="flex items-center gap-2 shrink-0">
                     <div className="w-3 h-3 rounded-full bg-red/80"></div>
                     <div className="w-3 h-3 rounded-full bg-yellow-500/80"></div>
                     <div className="w-3 h-3 rounded-full bg-green-500/80"></div>
                   </div>
-                  <div className="text-xs font-mono text-neutral-500 flex items-center gap-2">
+                  <div className="text-xs font-mono text-neutral-500 hidden sm:flex items-center gap-2">
                     <Lock className="w-3 h-3" />
-                    <span className="hidden sm:inline">terminal.egysafe.darkweb_monitor</span>
+                    <span>terminal.egysafe.darkweb_monitor</span>
+                  </div>
+
+                  {/* Terminal Controls */}
+                  <div className="flex items-center gap-1 border-l border-white/10 pl-4 ml-auto xl:ml-2">
+                    <button 
+                      onClick={() => {
+                        if (!isAnalystOrAdmin) {
+                          toast.error('You must be an Analyst or Admin to control the live scanner.');
+                          return;
+                        }
+                        setIsPaused(!isPaused);
+                      }}
+                      className={`p-1.5 rounded-md transition-colors focus:outline-none ${isPaused ? 'bg-yellow-500/20 text-yellow-500' : 'hover:bg-white/10 text-neutral-400 hover:text-white'}`}
+                      title={isPaused ? "Resume Live Feed" : "Pause Live Feed"}
+                    >
+                      {isPaused ? <Play className="w-4 h-4" /> : <Pause className="w-4 h-4" />}
+                    </button>
+                    <button 
+                      onClick={() => {
+                        if (!isAnalystOrAdmin) {
+                          toast.error('You must be an Analyst or Admin to reset the feed.');
+                          return;
+                        }
+                        setThreats([]);
+                        toast.success("Threat feed reset.");
+                        logUserAction('Data Modification', 'Reset Global Threat Feed');
+                      }}
+                      className="p-1.5 rounded-md text-neutral-400 hover:bg-white/10 hover:text-white transition-colors focus:outline-none"
+                      title="Reset Feed"
+                    >
+                      <RotateCcw className="w-4 h-4" />
+                    </button>
                   </div>
                 </div>
                 
