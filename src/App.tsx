@@ -6,6 +6,7 @@ import LiveThreatFeed from './components/LiveThreatFeed';
 import SecurityAssessmentModal from './components/SecurityAssessmentModal';
 import DataFlowBackground from './components/DataFlowBackground';
 import { Toaster } from 'react-hot-toast';
+import { SpeedInsights } from '@vercel/speed-insights/react';
 
 const carouselItems = [
   { icon: Globe, name: 'Global Tech Enterprise' },
@@ -956,7 +957,7 @@ export default function App() {
         isOpen={isAssessmentModalOpen} 
         onClose={() => setIsAssessmentModalOpen(false)} 
       />
+      <SpeedInsights />
     </div>
   );
 }
-
