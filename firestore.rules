@@ -74,5 +74,21 @@ service cloud.firestore {
                     && incoming().userId == request.auth.uid;
       allow update, delete: if false; // Logs are immutable
     }
+
+    match /analytics_events/{eventId} {
+      function isValidAnalyticsEvent(data) {
+        return data.keys().hasAll(['event', 'properties', 'createdAt', 'userId', 'userAgent'])
+          && data.size() == 5
+          && data.event is string && data.event.size() <= 256
+          && data.properties is map
+          && data.createdAt is timestamp
+          && data.userId is string && data.userId.size() <= 128
+          && data.userAgent is string;
+      }
+
+      allow get, list: if isEffectiveAdmin();
+      allow create: if isValidAnalyticsEvent(incoming());
+      allow update, delete: if false;
+    }
   }
 }

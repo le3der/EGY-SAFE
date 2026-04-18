@@ -1,6 +1,7 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, Crosshair, Fingerprint, Code, Server, Shield } from 'lucide-react';
+import { trackEvent } from '../lib/analytics';
 
 interface SecurityAssessmentModalProps {
   isOpen: boolean;
@@ -184,7 +185,13 @@ export default function SecurityAssessmentModal({ isOpen, onClose }: SecurityAss
                     <p className="text-sm text-neutral-600 dark:text-neutral-400 mb-4">
                       We tailor our engagements to your specific business logic, compliance needs, and threat model.
                     </p>
-                    <button onClick={onClose} className="px-6 py-2 bg-black dark:bg-white text-white dark:text-black rounded-md font-semibold text-sm hover:opacity-90 transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan">
+                    <button 
+                      onClick={() => {
+                        trackEvent('contact_sales_clicked', { source: 'SecurityAssessmentModal' });
+                        onClose();
+                      }} 
+                      className="px-6 py-2 bg-black dark:bg-white text-white dark:text-black rounded-md font-semibold text-sm hover:opacity-90 transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan"
+                    >
                       Contact Sales
                     </button>
                   </motion.div>

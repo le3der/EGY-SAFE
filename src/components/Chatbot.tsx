@@ -49,8 +49,9 @@ export default function Chatbot({ activeSection = 'hero' }: ChatbotProps) {
       chatRef.current = ai.chats.create({
         model: "gemini-3-flash-preview",
         config: {
-          systemInstruction: `You are an expert cybersecurity AI assistant for Egy Safe, an Egyptian enterprise threat intelligence and attack surface management startup. You specialize in dark web monitoring, penetration testing, and red teaming. You provide professional, accurate, and concise answers about cybersecurity threats and how Egy Safe's services can mitigate them. The user is currently viewing the '${activeSection}' section of the website. Tailor your responses to refer to the context of the '${activeSection}' section if relevant.`,
+          systemInstruction: `You are an expert cybersecurity AI assistant for Egy Safe, an Egyptian enterprise threat intelligence and attack surface management startup. You specialize in dark web monitoring, penetration testing, and red teaming. You provide professional, accurate, and concise answers about cybersecurity threats and how Egy Safe's services can mitigate them. The user is currently viewing the '${activeSection}' section of the website. Tailor your responses to refer to the context of the '${activeSection}' section if relevant. Use the Google Search tool to find the most recent information about cybersecurity threats.`,
           temperature: 0.5,
+          tools: [{ googleSearch: {} }]
         }
       });
     } catch (e) {
@@ -65,8 +66,9 @@ export default function Chatbot({ activeSection = 'hero' }: ChatbotProps) {
         model: "gemini-3-flash-preview",
         history: chatRef.current.history || [], // Keep message history!
         config: {
-          systemInstruction: `You are an expert cybersecurity AI assistant for Egy Safe, an Egyptian enterprise threat intelligence and attack surface management startup. You specialize in dark web monitoring, penetration testing, and red teaming. You provide professional, accurate, and concise answers about cybersecurity threats. The user is currently viewing the '${activeSection}' section of the website. If the user asks a general question (like "tell me more"), assume they mean the '${activeSection}' section. Proactively offer tailored information or ask questions related to this section if appropriate.`,
+          systemInstruction: `You are an expert cybersecurity AI assistant for Egy Safe, an Egyptian enterprise threat intelligence and attack surface management startup. You specialize in dark web monitoring, penetration testing, and red teaming. You provide professional, accurate, and concise answers about cybersecurity threats. The user is currently viewing the '${activeSection}' section of the website. If the user asks a general question (like "tell me more"), assume they mean the '${activeSection}' section. Proactively offer tailored information or ask questions related to this section if appropriate. Use the Google Search tool to find the most recent information about cybersecurity threats.`,
           temperature: 0.5,
+          tools: [{ googleSearch: {} }]
         }
       });
     }

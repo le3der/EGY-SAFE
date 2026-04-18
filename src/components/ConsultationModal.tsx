@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, Building2, User, Mail, Phone, MessageSquare, ArrowRight, CheckCircle2 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { trackEvent } from '../lib/analytics';
 
 interface ConsultationModalProps {
   isOpen: boolean;
@@ -23,6 +24,13 @@ export default function ConsultationModal({ isOpen, onClose }: ConsultationModal
       setIsSubmitting(false);
       setIsSuccess(true);
       toast.success('Request received successfully!', { id: toastId });
+      
+      // Track analytics event
+      trackEvent('consultation_requested', {
+        feature: 'ConsultationModal',
+        type: 'Service Inquiry'
+      });
+
       setTimeout(() => {
         setIsSuccess(false);
         onClose();

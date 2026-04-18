@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ShieldAlert, AlertTriangle, AlertCircle, Activity, Globe, Lock, Loader2, Key, Database, FileWarning, Mail, Bomb, Bug, Download, Play, Pause, RotateCcw } from 'lucide-react';
 import { io } from 'socket.io-client';
@@ -7,6 +7,7 @@ import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
 
 type Severity = 'CRITICAL' | 'HIGH' | 'MEDIUM';
+type ThreatStatus = 'active' | 'reviewed' | 'dismissed';
 
 interface Threat {
   id: string;
@@ -15,7 +16,48 @@ interface Threat {
   target: string;
   severity: Severity;
   description: string;
+  status: ThreatStatus;
 }
+
+const THREAT_TYPES = [
+  'Credential Leak',
+  'Initial Access Broker',
+  'Ransomware Sighting',
+  'Zero-Day Exploit Chatter',
+  'Database Dump',
+  'DDoS Planning',
+  'Phishing Campaign',
+];
+
+const TARGETS = [
+  'Financial Sector',
+  'Healthcare Org',
+  'Government SaaS',
+  'E-Commerce Platform',
+  'Telecom Provider',
+  'Manufacturing Tech',
+];
+
+const DESCRIPTIONS = [
+  'Active discussion observed on dark web forums regarding sale of access.',
+  'Large database dump allegedly containing millions of user records published.',
+  'Compromised credentials verified matching corporate domain patterns.',
+  'Threat actors seeking partners for imminent ransomware deployment.',
+  'Chatter indicates automated scanning for recently disclosed CVEs.',
+];
+
+const generateOldThreat = (baseTime: number): Threat => {
+  const severities: Severity[] = ['CRITICAL', 'HIGH', 'HIGH', 'MEDIUM', 'MEDIUM', 'MEDIUM'];
+  return {
+    id: `hist-${Math.random().toString(36).substr(2, 9)}`,
+    timestamp: new Date(baseTime),
+    type: THREAT_TYPES[Math.floor(Math.random() * THREAT_TYPES.length)],
+    target: TARGETS[Math.floor(Math.random() * TARGETS.length)],
+    severity: severities[Math.floor(Math.random() * severities.length)],
+    description: DESCRIPTIONS[Math.floor(Math.random() * DESCRIPTIONS.length)],
+    status: 'active',
+  };
+};
 
 const initialThreats: Threat[] = [
   {
@@ -25,6 +67,7 @@ const initialThreats: Threat[] = [
     target: 'Telecom Provider',
     severity: 'HIGH',
     description: 'Compromised credentials verified matching corporate domain patterns.',
+    status: 'active',
   },
   {
     id: '2',
@@ -33,6 +76,7 @@ const initialThreats: Threat[] = [
     target: 'Healthcare Org',
     severity: 'CRITICAL',
     description: 'Threat actors seeking partners for imminent ransomware deployment.',
+    status: 'active',
   },
   {
     id: '3',
@@ -41,6 +85,7 @@ const initialThreats: Threat[] = [
     target: 'E-Commerce Platform',
     severity: 'MEDIUM',
     description: 'Large database dump allegedly containing millions of user records published.',
+    status: 'active',
   }
 ];
 
@@ -48,11 +93,14 @@ export default function LiveThreatFeed() {
   const [threats, setThreats] = useState<Threat[]>(initialThreats);
   const [isPaused, setIsPaused] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [activeSeverityFilter, setActiveSeverityFilter] = useState<'ALL' | Severity>('ALL');
   const [activeTypeFilter, setActiveTypeFilter] = useState<string>('ALL');
+  const [activeStatusFilter, setActiveStatusFilter] = useState<'ALL' | ThreatStatus>('active');
 
   const { profile } = useAuth();
   const isAnalystOrAdmin = profile?.role === 'Admin' || profile?.role === 'Analyst';
+  const observerTarget = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     // Connect to WebSocket server running on same origin
@@ -72,10 +120,7 @@ export default function LiveThreatFeed() {
       
       const parsedThreat = { ...threat, timestamp: new Date(threat.timestamp) };
       
-      setThreats(prev => {
-        const newThreats = [parsedThreat, ...prev];
-        return newThreats.slice(0, 15); // Keep last 15
-      });
+      setThreats(prev => [parsedThreat, ...prev]);
       
       setIsScanning(false);
 
@@ -118,6 +163,50 @@ export default function LiveThreatFeed() {
     };
   }, [isPaused]);
 
+  const loadMoreThreats = useCallback(() => {
+    if (isLoadingMore) return;
+    setIsLoadingMore(true);
+    
+    setTimeout(() => {
+      setThreats(prev => {
+        const oldestTime = prev.length > 0 
+          ? new Date(prev[prev.length - 1].timestamp).getTime() 
+          : Date.now();
+        
+        const newOlderThreats = Array.from({ length: 10 }).map((_, i) => 
+          generateOldThreat(oldestTime - (i + 1) * 1000 * 60 * (15 + Math.random() * 30))
+        );
+        
+        return [...prev, ...newOlderThreats];
+      });
+      setIsLoadingMore(false);
+    }, 1500); // Simulate network delay
+  }, [isLoadingMore]);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver((entries) => {
+      if (entries[0].isIntersecting) {
+        loadMoreThreats();
+      }
+    }, { threshold: 0.1 });
+
+    if (observerTarget.current) {
+      observer.observe(observerTarget.current);
+    }
+
+    return () => observer.disconnect();
+  }, [loadMoreThreats]);
+
+  const markThreatStatus = (id: string, newStatus: ThreatStatus) => {
+    if (!isAnalystOrAdmin) {
+      toast.error('You must be an Analyst or Admin to modify threat statuses.');
+      return;
+    }
+    setThreats(prev => prev.map(t => t.id === id ? { ...t, status: newStatus } : t));
+    toast.success(`Threat marked as ${newStatus}`);
+    logUserAction('Data Modification', `Marked threat ${id} as ${newStatus}`);
+  };
+
   const getSeverityColor = (severity: Severity) => {
     switch (severity) {
       case 'CRITICAL': return 'text-red bg-red/10 border-red/30';
@@ -131,6 +220,15 @@ export default function LiveThreatFeed() {
       case 'CRITICAL': return <ShieldAlert className="w-4 h-4 text-red" />;
       case 'HIGH': return <AlertTriangle className="w-4 h-4 text-orange-500" />;
       case 'MEDIUM': return <AlertCircle className="w-4 h-4 text-yellow-500" />;
+    }
+  };
+
+  const getCardSeverityColor = (severity: Severity) => {
+    switch (severity) {
+      case 'CRITICAL': return 'bg-red/5 dark:bg-red/[0.02] hover:bg-red/10 dark:hover:bg-red/[0.05] border-red/20 dark:border-red/10';
+      case 'HIGH': return 'bg-orange-500/5 dark:bg-orange-500/[0.02] hover:bg-orange-500/10 dark:hover:bg-orange-500/[0.05] border-orange-500/20 dark:border-orange-500/10';
+      case 'MEDIUM': return 'bg-yellow-500/5 dark:bg-yellow-500/[0.02] hover:bg-yellow-500/10 dark:hover:bg-yellow-500/[0.05] border-yellow-500/20 dark:border-yellow-500/10';
+      default: return 'bg-white dark:bg-[#111] border-black/5 dark:border-white/5 hover:border-black/20 dark:hover:border-white/20 hover:bg-gray-50 dark:hover:bg-white/5';
     }
   };
 
@@ -165,7 +263,8 @@ export default function LiveThreatFeed() {
   const filteredThreats = threats.filter(threat => {
     const matchesSeverity = activeSeverityFilter === 'ALL' || threat.severity === activeSeverityFilter;
     const matchesType = activeTypeFilter === 'ALL' || threat.type === activeTypeFilter;
-    return matchesSeverity && matchesType;
+    const matchesStatus = activeStatusFilter === 'ALL' || threat.status === activeStatusFilter;
+    return matchesSeverity && matchesType && matchesStatus;
   });
 
   const exportToCSV = () => {
@@ -369,6 +468,26 @@ export default function LiveThreatFeed() {
                   {/* Divider hidden on mobile */}
                   <div className="hidden lg:block w-px h-6 bg-white/10 shrink-0"></div>
                   
+                  {/* Status Filter */}
+                  <div className="flex items-center gap-1.5 bg-[#050505] border border-white/5 rounded-full p-1 shrink-0 w-full lg:w-auto overflow-x-auto no-scrollbar">
+                    {[{value: 'ALL', label: 'ALL'}, {value: 'active', label: 'ACTIVE'}, {value: 'reviewed', label: 'REVIEWED'}, {value: 'dismissed', label: 'DISMISSED'}].map((statusObj) => (
+                      <button
+                        key={statusObj.value}
+                        onClick={() => setActiveStatusFilter(statusObj.value as 'ALL' | ThreatStatus)}
+                        className={`whitespace-nowrap px-4 py-1.5 rounded-full text-[10px] font-bold tracking-widest transition-all duration-300 ${
+                          activeStatusFilter === statusObj.value 
+                            ? 'bg-white/10 text-white shadow-[0_0_15px_rgba(255,255,255,0.1)]'
+                            : 'text-neutral-500 hover:text-white hover:bg-white/5'
+                        }`}
+                      >
+                        {statusObj.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Divider hidden on mobile */}
+                  <div className="hidden lg:block w-px h-6 bg-white/10 shrink-0"></div>
+
                   {/* Severity Filter */}
                   <div className="flex items-center gap-1.5 bg-[#050505] border border-white/5 rounded-full p-1 shrink-0 w-full lg:w-auto overflow-x-auto no-scrollbar">
                     {['ALL', 'CRITICAL', 'HIGH', 'MEDIUM'].map((sev) => (
@@ -459,7 +578,7 @@ export default function LiveThreatFeed() {
                     animate={{ opacity: 1, y: 0, height: 'auto', paddingTop: '1rem', paddingBottom: '1rem', scale: 1 }}
                     exit={{ opacity: 0, y: -20, height: 0, paddingTop: 0, paddingBottom: 0, scale: 0.9, margin: 0 }}
                     transition={{ duration: 0.4, ease: "easeOut" }}
-                    className="bg-white dark:bg-[#111] border border-black/5 dark:border-white/5 rounded-xl px-4 flex flex-col sm:flex-row sm:items-start gap-4 hover:border-black/20 dark:hover:border-white/20 transition-all hover:bg-gray-50 dark:hover:bg-white/5 cursor-default"
+                    className={`rounded-xl px-4 flex flex-col sm:flex-row sm:items-start gap-4 transition-all cursor-default border backdrop-blur-sm ${getCardSeverityColor(threat.severity)} ${threat.status === 'reviewed' ? 'opacity-80 border-green-500/30' : ''} ${threat.status === 'dismissed' ? 'opacity-40 grayscale' : ''}`}
                   >
                     {/* Timestamp & Icon */}
                     <div className="flex items-center sm:flex-col sm:items-end gap-2 sm:gap-1 shrink-0 sm:w-24">
@@ -471,16 +590,53 @@ export default function LiveThreatFeed() {
 
                     {/* Content */}
                     <div className="flex-1">
-                      <div className="flex flex-wrap items-center gap-2 mb-2">
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold tracking-wider uppercase border ${getSeverityColor(threat.severity)}`}>
-                          {threat.severity}
-                        </span>
-                        <div className="flex items-center gap-1.5 text-black dark:text-offwhite">
-                          {getThreatTypeIcon(threat.type)}
-                          <span className="text-sm font-bold truncate">
-                            {threat.type}
+                      <div className="flex flex-wrap items-center justify-between gap-2 mb-2 w-full">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold tracking-wider uppercase border ${getSeverityColor(threat.severity)}`}>
+                            {threat.severity === 'CRITICAL' && <ShieldAlert className="w-3 h-3" />}
+                            {threat.severity === 'HIGH' && <AlertTriangle className="w-3 h-3" />}
+                            {threat.severity === 'MEDIUM' && <AlertCircle className="w-3 h-3" />}
+                            {threat.severity}
                           </span>
+                          <div className="flex items-center gap-1.5 text-black dark:text-offwhite">
+                            {getThreatTypeIcon(threat.type)}
+                            <span className="text-sm font-bold truncate">
+                              {threat.type}
+                            </span>
+                          </div>
+                          {threat.status === 'reviewed' && (
+                            <span className="ml-2 px-2 py-0.5 bg-green-500/10 text-green-500 border border-green-500/20 text-[9px] font-bold tracking-widest uppercase rounded">
+                              Reviewed
+                            </span>
+                          )}
+                          {threat.status === 'dismissed' && (
+                            <span className="ml-2 px-2 py-0.5 bg-white/5 text-neutral-400 border border-white/10 text-[9px] font-bold tracking-widest uppercase rounded">
+                              Dismissed
+                            </span>
+                          )}
                         </div>
+
+                        {/* Status Actions */}
+                        {isAnalystOrAdmin && (
+                          <div className="flex items-center gap-1 ml-auto">
+                            {threat.status !== 'reviewed' && (
+                              <button
+                                onClick={() => markThreatStatus(threat.id, 'reviewed')}
+                                className="px-2 py-1 bg-green-500/10 hover:bg-green-500/20 text-green-500 border border-green-500/20 rounded text-[10px] font-bold uppercase tracking-widest transition-colors"
+                              >
+                                Review
+                              </button>
+                            )}
+                            {threat.status !== 'dismissed' && (
+                              <button
+                                onClick={() => markThreatStatus(threat.id, 'dismissed')}
+                                className="px-2 py-1 bg-white/5 hover:bg-white/10 text-neutral-400 hover:text-white border border-white/10 rounded text-[10px] font-bold uppercase tracking-widest transition-colors"
+                              >
+                                Dismiss
+                              </button>
+                            )}
+                          </div>
+                        )}
                       </div>
                       
                       <p className="text-sm text-neutral-600 dark:text-neutral-400 mb-2 font-sans">
@@ -494,6 +650,23 @@ export default function LiveThreatFeed() {
                     </div>
                   </motion.div>
                 ))}
+                
+                {/* Infinite Scroll Intersection Target */}
+                {filteredThreats.length > 0 && (
+                  <div 
+                    ref={observerTarget}
+                    className="flex justify-center items-center py-6 pb-24 mt-4"
+                  >
+                    {isLoadingMore ? (
+                      <div className="flex items-center gap-2 text-cyan/70 text-xs font-mono">
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Fetching historical threat data...
+                      </div>
+                    ) : (
+                      <div className="h-4 w-full" />
+                    )}
+                  </div>
+                )}
               </AnimatePresence>
             </div>
 

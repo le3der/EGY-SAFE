@@ -14,6 +14,7 @@ import MfaVerificationModal from './components/MfaVerificationModal';
 import LoginModal from './components/LoginModal';
 import { Toaster, toast } from 'react-hot-toast';
 import { useAuth } from './context/AuthContext';
+import { trackEvent } from './lib/analytics';
 
 const carouselItems = [
   { icon: Globe, name: 'Global Tech Enterprise' },
@@ -233,7 +234,13 @@ export default function App() {
               </button>
             )}
 
-            <button className="bg-cyan hover:bg-cyan/90 text-black px-6 py-2.5 rounded-md font-semibold text-sm transition-all duration-300 hover:scale-105 active:scale-95 glow-cyan hidden md:block focus:outline-none focus:ring-2 focus:ring-cyan focus:ring-offset-2 focus:ring-offset-black">
+            <button 
+              onClick={() => {
+                trackEvent('demo_requested', { source: 'Navbar' });
+                setIsConsultationModalOpen(true);
+              }}
+              className="bg-cyan hover:bg-cyan/90 text-black px-6 py-2.5 rounded-md font-semibold text-sm transition-all duration-300 hover:scale-105 active:scale-95 glow-cyan hidden md:block focus:outline-none focus:ring-2 focus:ring-cyan focus:ring-offset-2 focus:ring-offset-black"
+            >
               Request Demo
             </button>
           </div>
@@ -285,10 +292,22 @@ export default function App() {
               transition={{ delay: 0.5, duration: 0.8, type: "spring", stiffness: 100 }}
               className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto"
             >
-              <button className="bg-cyan hover:bg-white text-black px-8 py-4 rounded-md font-bold text-base transition-all duration-300 hover:scale-105 active:scale-95 glow-cyan w-full sm:w-auto focus:outline-none focus:ring-2 focus:ring-cyan focus:ring-offset-2 focus:ring-offset-black">
+              <button 
+                onClick={() => {
+                  trackEvent('scan_started', { source: 'Hero Button' });
+                  document.getElementById('free-scan')?.scrollIntoView({ behavior: 'smooth' });
+                }}
+                className="bg-cyan hover:bg-white text-black px-8 py-4 rounded-md font-bold text-base transition-all duration-300 hover:scale-105 active:scale-95 glow-cyan w-full sm:w-auto focus:outline-none focus:ring-2 focus:ring-cyan focus:ring-offset-2 focus:ring-offset-black"
+              >
                 Start Free Scan
               </button>
-              <button className="bg-transparent border border-white/20 text-white hover:bg-white/10 px-8 py-4 rounded-md font-bold text-base transition-all duration-300 w-full sm:w-auto focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-black">
+              <button 
+                onClick={() => {
+                  trackEvent('see_how_it_works_clicked', { source: 'Hero Button' });
+                  setIsConsultationModalOpen(true);
+                }}
+                className="bg-transparent border border-white/20 text-white hover:bg-white/10 px-8 py-4 rounded-md font-bold text-base transition-all duration-300 w-full sm:w-auto focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-black"
+              >
                 See How It Works
               </button>
             </motion.div>
@@ -456,15 +475,23 @@ export default function App() {
               </div>
 
               <div className="w-14 h-14 bg-[#0A0A0A] border border-cyan/20 rounded-xl flex items-center justify-center mb-8 relative overflow-hidden transition-all duration-500 group-hover:shadow-[0_0_25px_rgba(0,194,255,0.4)] group-hover:bg-cyan/10 z-10">
+                {/* Background Rotating Element */}
                 <motion.div 
                   animate={{ rotate: 360 }}
                   transition={{ duration: 20, ease: "linear", repeat: Infinity }}
-                  variants={{ hover: { rotate: 360, transition: { duration: 4, ease: "linear", repeat: Infinity } } }} className="absolute">
+                  variants={{ hover: { rotate: 360, transition: { duration: 4, ease: "linear", repeat: Infinity } } }}
+                  className="absolute"
+                >
                   <Network className="w-8 h-8 text-cyan/20" />
                 </motion.div>
-                <div className="relative z-10">
+                {/* Primary Icon - Gentle Pulse */}
+                <motion.div 
+                  className="relative z-10"
+                  animate={{ scale: [1, 1.1, 1] }}
+                  transition={{ duration: 3, ease: "easeInOut", repeat: Infinity }}
+                >
                   <Eye className="w-6 h-6 text-cyan" />
-                </div>
+                </motion.div>
               </div>
               <h3 className="text-xl font-bold mb-2 text-white relative z-10">Dark Web Monitoring</h3>
               <div className="text-[9px] font-bold tracking-widest text-cyan uppercase mb-6 relative z-10">Real-Time Threat Intelligence Feed</div>
@@ -473,10 +500,14 @@ export default function App() {
                 With our automated monitoring of the surface, deep & dark web, your company assets are tracked 24/7 for data-leaks, stolen credentials, and exposed records.
               </p>
 
-              <div className="mb-6 p-4 rounded-lg bg-gradient-to-r from-red-500/20 to-red-500/5 border border-red-500/20 flex flex-col md:flex-row items-start md:items-center gap-3 relative z-10 glow-red">
+              <motion.div 
+                animate={{ y: [0, -3, 0] }}
+                transition={{ duration: 4, ease: "easeInOut", repeat: Infinity }}
+                className="mb-6 p-4 rounded-lg bg-gradient-to-r from-red-500/20 to-red-500/5 border border-red-500/20 flex flex-col md:flex-row items-start md:items-center gap-3 relative z-10 shadow-[0_0_15px_rgba(239,68,68,0.15)]"
+              >
                 <Activity className="w-5 h-5 text-red-500 shrink-0" />
                 <span className="text-[9px] font-bold text-red-500 tracking-widest uppercase leading-snug">Real-Time Threat Intelligence Feed</span>
-              </div>
+              </motion.div>
 
               <a href="#" className="inline-flex items-center gap-2 text-cyan font-bold text-[11px] tracking-widest uppercase hover:text-cyan/80 mt-auto transition-colors relative z-10">
                 Learn More <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
@@ -509,18 +540,27 @@ export default function App() {
 
               <div className="w-14 h-14 bg-[#0A0A0A] border border-blue-500/20 rounded-xl flex items-center justify-center mb-8 relative overflow-hidden transition-all duration-500 group-hover:shadow-[0_0_25px_rgba(59,130,246,0.4)] group-hover:bg-blue-500/10 z-10">
                 <motion.div 
-                  animate={{ rotate: 180 }}
-                  transition={{ duration: 10, ease: "linear", repeat: Infinity, repeatType: "mirror" }}
-                  variants={{ hover: { rotate: 360, transition: { duration: 2, ease: "linear", repeat: Infinity } } }}>
+                  animate={{ rotate: 360 }}
+                  transition={{ duration: 12, ease: "linear", repeat: Infinity }}
+                  variants={{ hover: { rotate: 360, transition: { duration: 3, ease: "linear", repeat: Infinity } } }}
+                  className="relative z-10"
+                >
                   <Radar className="w-6 h-6 text-blue-500" />
                 </motion.div>
               </div>
               <h3 className="text-xl font-bold mb-6 text-white relative z-10">Attack Surface Discovery</h3>
-              <p className="text-neutral-400 leading-relaxed text-sm mb-8 flex-grow relative z-10">
+              <p className="text-neutral-400 leading-relaxed text-sm mb-6 flex-grow relative z-10">
                 Automated security scanning for vulnerabilities, CVEs, and misconfigurations — periodically scanning all your external-facing assets before attackers do.
               </p>
               
-              <div className="mb-6 flex-grow"></div>
+              <motion.div 
+                animate={{ y: [0, -3, 0] }}
+                transition={{ duration: 4.5, ease: "easeInOut", repeat: Infinity, delay: 0.5 }}
+                className="mb-6 p-4 rounded-lg bg-gradient-to-r from-blue-500/20 to-blue-500/5 border border-blue-500/20 flex flex-col md:flex-row items-start md:items-center gap-3 relative z-10 shadow-[0_0_15px_rgba(59,130,246,0.15)]"
+              >
+                <ScanSearch className="w-5 h-5 text-blue-500 shrink-0" />
+                <span className="text-[9px] font-bold text-blue-500 tracking-widest uppercase leading-snug">Continuous Asset Discovery</span>
+              </motion.div>
 
               <a href="#" className="inline-flex items-center gap-2 text-blue-500 font-bold text-[11px] tracking-widest uppercase hover:text-blue-400 mt-auto transition-colors relative z-10">
                 Learn More <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
@@ -553,9 +593,11 @@ export default function App() {
 
               <div className="w-14 h-14 bg-[#0A0A0A] border border-purple-500/20 rounded-xl flex items-center justify-center mb-8 relative overflow-hidden transition-all duration-500 group-hover:shadow-[0_0_25px_rgba(168,85,247,0.4)] group-hover:bg-purple-500/10 z-10">
                 <motion.div 
-                  animate={{ y: [0, -4, 0] }}
+                  animate={{ scale: [1, 1.05, 1], rotate: [0, -2, 2, 0] }}
                   transition={{ duration: 4, ease: "easeInOut", repeat: Infinity }}
-                  variants={{ hover: { scale: 1.15, transition: { duration: 0.4 } } }}>
+                  variants={{ hover: { scale: 1.15, transition: { duration: 0.4 } } }}
+                  className="relative z-10"
+                >
                   <ShieldCheck className="w-6 h-6 text-purple-500" />
                 </motion.div>
               </div>
@@ -564,10 +606,14 @@ export default function App() {
                 Information security assessments, penetration testing, red & purple teaming, SAP hacking, and scenario-based security exercises tailored to your threat model.
               </p>
 
-              <div className="mb-6 p-4 rounded-lg bg-gradient-to-r from-purple-500/20 to-purple-500/5 border border-purple-500/20 flex flex-col md:flex-row items-start md:items-center gap-3 relative z-10">
+              <motion.div 
+                animate={{ y: [0, -3, 0] }}
+                transition={{ duration: 5, ease: "easeInOut", repeat: Infinity, delay: 1 }}
+                className="mb-6 p-4 rounded-lg bg-gradient-to-r from-purple-500/20 to-purple-500/5 border border-purple-500/20 flex flex-col md:flex-row items-start md:items-center gap-3 relative z-10 shadow-[0_0_15px_rgba(168,85,247,0.15)]"
+              >
                 <Share2 className="w-5 h-5 text-purple-400 shrink-0" />
                 <span className="text-[9px] font-bold text-purple-400 tracking-widest uppercase leading-snug">Enterprise API Ready</span>
-              </div>
+              </motion.div>
 
               <button 
                 onClick={(e) => {
@@ -730,11 +776,20 @@ export default function App() {
             <motion.div 
               variants={{
                 hidden: { opacity: 0, y: 40 },
-                visible: { opacity: 1, y: 0, transition: { duration: 0.8, type: "spring", stiffness: 100, damping: 20 } }
+                visible: { opacity: 1, y: 0, transition: { duration: 0.8, type: "spring", stiffness: 100, damping: 20 } },
+                hover: { y: -10, transition: { duration: 0.3 } }
               }}
-              className="cyber-glass-card p-8 flex flex-col"
+              whileHover="hover"
+              className="cyber-glass-card p-8 flex flex-col relative group"
             >
               <div className="cyber-glass-card-glow"></div>
+              {/* Parallax Hover Background */}
+              <div className="absolute top-0 right-0 -mr-16 -mt-16 w-48 h-48 bg-white/5 rounded-full blur-[60px] opacity-0 group-hover:opacity-100 group-hover:translate-x-4 group-hover:-translate-y-4 transition-all duration-700 pointer-events-none z-0"></div>
+
+              <div className="w-12 h-12 bg-[#0A0A0A] border border-white/10 rounded-xl flex items-center justify-center mb-6 relative overflow-hidden transition-all duration-500 group-hover:shadow-[0_0_20px_rgba(255,255,255,0.1)] group-hover:bg-white/5 z-10">
+                 <Shield className="w-5 h-5 text-neutral-400 group-hover:text-white transition-colors" />
+              </div>
+
               <div className="mb-8 relative z-10">
                 <h3 className="text-xl font-bold text-white mb-2">Basic</h3>
                 <p className="text-neutral-500 text-sm mb-6">For small businesses and startups.</p>
@@ -744,7 +799,7 @@ export default function App() {
               <ul className="space-y-4 mb-8 flex-grow relative z-10">
                 {['Surface Web Monitoring', 'Basic Vulnerability Scanning', 'Weekly Security Reports', 'Email Alerts'].map((feature, i) => (
                   <li key={i} className="flex items-start gap-3 text-neutral-300 text-sm">
-                    <Check className="w-5 h-5 text-cyan shrink-0" />
+                    <Check className="w-4 h-4 text-cyan shrink-0 mt-0.5" />
                     <span>{feature}</span>
                   </li>
                 ))}
@@ -758,27 +813,38 @@ export default function App() {
             <motion.div 
               variants={{
                 hidden: { opacity: 0, y: 40 },
-                visible: { opacity: 1, y: 0, transition: { duration: 0.8, type: "spring", stiffness: 100, damping: 20 } }
+                visible: { opacity: 1, y: 0, transition: { duration: 0.8, type: "spring", stiffness: 100, damping: 20 } },
+                hover: { y: -10, transition: { duration: 0.3 } }
               }}
-              className="cyber-glass-card border border-cyan/50 p-8 flex flex-col relative transform md:-translate-y-6 md:scale-105 shadow-[0_0_50px_rgba(0,194,255,0.1)] z-10 hover:border-cyan/80"
-              style={{ background: 'rgba(5, 5, 5, 0.8)' }}
+              whileHover="hover"
+              className="cyber-glass-card border border-cyan/30 hover:border-cyan/60 p-8 flex flex-col relative group shadow-[0_0_30px_rgba(0,194,255,0.05)] hover:shadow-[0_0_40px_rgba(0,194,255,0.15)] transition-all"
+              style={{ background: 'rgba(10, 15, 20, 0.4)' }}
             >
-              <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-cyan text-black px-5 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest shadow-[0_0_20px_rgba(0,194,255,0.4)] flex items-center gap-2 z-20">
-                <span className="w-2 h-2 rounded-full bg-black animate-pulse"></span>
-                Most Popular
+              <div className="cyber-glass-card-glow text-cyan/20"></div>
+              {/* Parallax Hover Background */}
+              <div className="absolute top-0 right-0 -mr-16 -mt-16 w-48 h-48 bg-cyan/10 rounded-full blur-[60px] opacity-0 group-hover:opacity-100 group-hover:translate-x-4 group-hover:-translate-y-4 transition-all duration-700 pointer-events-none z-0"></div>
+
+              <div className="flex justify-between items-start mb-6 relative z-10">
+                <div className="w-12 h-12 bg-[#0A0A0A] border border-cyan/20 rounded-xl flex items-center justify-center relative overflow-hidden transition-all duration-500 group-hover:shadow-[0_0_20px_rgba(0,194,255,0.3)] group-hover:bg-cyan/10">
+                   <Activity className="w-5 h-5 text-cyan" />
+                </div>
+                <div className="bg-cyan/10 border border-cyan/20 text-cyan px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-cyan animate-pulse"></span>
+                  Most Popular
+                </div>
               </div>
-              <div className="cyber-glass-card-glow text-cyan/20" style={{ background: 'radial-gradient(circle, rgba(0,194,255,0.2) 0%, transparent 70%)'}}></div>
+
               <div className="mb-8 relative z-10">
-                <h3 className="text-xl font-bold text-cyan mb-2">Professional</h3>
-                <p className="text-cyan/60 text-sm mb-6">For mid-market and growing enterprises.</p>
+                <h3 className="text-xl font-bold text-white mb-2">Professional</h3>
+                <p className="text-neutral-500 text-sm mb-6">For mid-market and growing enterprises.</p>
                 <div className="text-3xl font-bold text-white mb-2">Contact Sales</div>
-                <p className="text-cyan/40 text-sm">Customized to your asset size</p>
+                <p className="text-neutral-500 text-sm">Customized to your asset size</p>
               </div>
               <ul className="space-y-4 mb-8 flex-grow relative z-10">
                 {['Dark Web Monitoring', 'Attack Surface Discovery', 'Real-time SMS & Email Alerts', 'API Access', 'Monthly Security Assessment'].map((feature, i) => (
-                  <li key={i} className="flex items-start gap-3 text-white text-sm">
-                    <Check className="w-5 h-5 text-cyan shrink-0" />
-                    <span>{feature}</span>
+                  <li key={i} className="flex items-start gap-3 text-neutral-300 text-sm">
+                    <Check className="w-4 h-4 text-cyan shrink-0 mt-0.5" />
+                    <span className="group-hover:text-white transition-colors">{feature}</span>
                   </li>
                 ))}
               </ul>
@@ -791,11 +857,20 @@ export default function App() {
             <motion.div 
               variants={{
                 hidden: { opacity: 0, y: 40 },
-                visible: { opacity: 1, y: 0, transition: { duration: 0.8, type: "spring", stiffness: 100, damping: 20 } }
+                visible: { opacity: 1, y: 0, transition: { duration: 0.8, type: "spring", stiffness: 100, damping: 20 } },
+                hover: { y: -10, transition: { duration: 0.3 } }
               }}
-              className="cyber-glass-card p-8 flex flex-col"
+              whileHover="hover"
+              className="cyber-glass-card p-8 flex flex-col relative group"
             >
               <div className="cyber-glass-card-glow"></div>
+              {/* Parallax Hover Background */}
+              <div className="absolute top-0 right-0 -mr-16 -mt-16 w-48 h-48 bg-white/5 rounded-full blur-[60px] opacity-0 group-hover:opacity-100 group-hover:translate-x-4 group-hover:-translate-y-4 transition-all duration-700 pointer-events-none z-0"></div>
+
+              <div className="w-12 h-12 bg-[#0A0A0A] border border-white/10 rounded-xl flex items-center justify-center mb-6 relative overflow-hidden transition-all duration-500 group-hover:shadow-[0_0_20px_rgba(255,255,255,0.1)] group-hover:bg-white/5 z-10">
+                 <Globe className="w-5 h-5 text-neutral-400 group-hover:text-white transition-colors" />
+              </div>
+
               <div className="mb-8 relative z-10">
                 <h3 className="text-xl font-bold text-white mb-2">Enterprise</h3>
                 <p className="text-neutral-500 text-sm mb-6">For large enterprises and government.</p>
@@ -805,7 +880,7 @@ export default function App() {
               <ul className="space-y-4 mb-8 flex-grow relative z-10">
                 {['Full Red Teaming', 'Dedicated Security Analyst', 'Zero-day Vulnerability Alerts', 'Takedown Services', 'Custom Integrations & Webhooks'].map((feature, i) => (
                   <li key={i} className="flex items-start gap-3 text-neutral-300 text-sm">
-                    <Check className="w-5 h-5 text-cyan shrink-0" />
+                    <Check className="w-4 h-4 text-cyan shrink-0 mt-0.5" />
                     <span>{feature}</span>
                   </li>
                 ))}
@@ -880,6 +955,8 @@ export default function App() {
                 e.preventDefault();
                 const form = e.target as HTMLFormElement;
                 const domain = (form.elements[0] as HTMLInputElement).value;
+                
+                trackEvent('scan_submitted', { target_domain: domain, source: 'Footer CTA' });
                 
                 const toastId = toast.loading('Initiating deep scan for ' + domain + '...');
                 setTimeout(() => {

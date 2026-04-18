@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut, getMultiFactorResolver, MultiFactorResolver, TotpMultiFactorGenerator, sendSignInLinkToEmail, isSignInWithEmailLink, signInWithEmailLink } from 'firebase/auth';
-import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, setDoc, serverTimestamp, onSnapshot } from 'firebase/firestore';
 import { auth, db } from '../lib/firebase';
 import { logUserAction } from '../lib/audit';
 import toast from 'react-hot-toast';
@@ -72,15 +72,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
     verifyMagicLink();
 
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+    let unsubscribeProfile: (() => void) | null = null;
+
+    const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
+      
+      if (unsubscribeProfile) {
+        unsubscribeProfile();
+        unsubscribeProfile = null;
+      }
+
       if (currentUser) {
-        try {
-          const docRef = doc(db, 'users', currentUser.uid);
-          const docSnap = await getDoc(docRef);
-          
+        const docRef = doc(db, 'users', currentUser.uid);
+        
+        unsubscribeProfile = onSnapshot(docRef, async (docSnap) => {
           if (docSnap.exists()) {
             setProfile(docSnap.data() as UserProfile);
+            setLoading(false);
           } else {
             // Self-register with Viewer role (or Admin if bootstrapped admin email)
             const isBootstrappedAdmin = currentUser.email === 'moashrafsy@gmail.com' && currentUser.emailVerified;
@@ -88,19 +96,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               email: currentUser.email || '',
               role: isBootstrappedAdmin ? 'Admin' : 'Viewer',
             };
-            await setDoc(docRef, { ...newProfile, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+            
+            // Set optimistically locally
             setProfile(newProfile);
+            setLoading(false);
+            
+            try {
+              await setDoc(docRef, { ...newProfile, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+            } catch (error) {
+              console.error("Error creating user profile", error);
+            }
           }
-        } catch (error) {
-          console.error("Error fetching user profile", error);
-        }
+        }, (error) => {
+          console.error("Error fetching user profile snapshot", error);
+          setLoading(false);
+        });
       } else {
         setProfile(null);
+        setLoading(false);
       }
-      setLoading(false);
     });
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribeAuth();
+      if (unsubscribeProfile) unsubscribeProfile();
+    };
   }, []);
 
   const sendMagicLink = async (email: string) => {
