@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ShieldAlert, Network, ScanSearch, Lock, Terminal, Globe, ChevronRight, Activity, AlertTriangle, Database, Shield, Eye, Radar, ShieldCheck, Bug, ShoppingCart, Server, Filter, BellRing, Plus, Zap, Linkedin, Twitter, Send, Check, ArrowUp, Sun, Moon, ChevronLeft, ArrowRight, Share2, LogIn, LogOut, Settings } from 'lucide-react';
+import { ShieldAlert, Network, ScanSearch, Lock, Terminal, Globe, ChevronRight, Activity, AlertTriangle, Database, Shield, Eye, Radar, ShieldCheck, Bug, ShoppingCart, Server, Filter, BellRing, Plus, Zap, Linkedin, Twitter, Send, Check, ArrowUp, Sun, Moon, ChevronLeft, ArrowRight, Share2, LogIn, LogOut, Settings, Mail, X } from 'lucide-react';
 import Chatbot from './components/Chatbot';
 import LiveThreatFeed from './components/LiveThreatFeed';
 import EgyptDarkWebScanner from './components/EgyptDarkWebScanner';
@@ -15,12 +15,6 @@ import LoginModal from './components/LoginModal';
 import { Toaster, toast } from 'react-hot-toast';
 import { useAuth } from './context/AuthContext';
 import { trackEvent } from './lib/analytics';
-
-const carouselItems = [
-  { icon: Globe, name: 'Global Tech Enterprise' },
-  { icon: Lock, name: 'Financial Institution' },
-  { icon: Shield, name: 'Healthcare Provider' }
-];
 
 const StatCounter = ({ end, prefix = '', suffix = '', duration = 2000, delay = 0 }: { end: number, prefix?: string, suffix?: string, duration?: number, delay?: number }) => {
   const [count, setCount] = useState(0);
@@ -78,13 +72,15 @@ export default function App() {
   const [isConsultationModalOpen, setIsConsultationModalOpen] = useState(false);
   
   // Services filtering & carousel state
-  const [activeFilter, setActiveFilter] = useState('ALL');
-  const [activeCarouselIndex, setActiveCarouselIndex] = useState(0);
+  const [activeServiceIndex, setActiveServiceIndex] = useState(0);
   const [activeSection, setActiveSection] = useState<string>('hero');
   
   // Theme state
   const [theme, setTheme] = useState<'light' | 'dark'>('dark');
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+  const [contactEmail, setContactEmail] = useState('');
+  const [contactEmailError, setContactEmailError] = useState('');
+  const [newsletterEmail, setNewsletterEmail] = useState('');
 
   // Track active section for Chatbot
   useEffect(() => {
@@ -379,8 +375,39 @@ export default function App() {
       {/* Egypt Regional Scanner Section */}
       <EgyptDarkWebScanner />
 
+      {/* Trusted By Section */}
+      <div className="border-y border-white/5 bg-black/50 py-10 relative z-10 overflow-hidden">
+        <div className="max-w-7xl mx-auto px-6">
+          <p className="text-center text-[10px] font-bold tracking-[0.2em] text-neutral-500 uppercase mb-8">
+            Protecting the infrastructure of industry leaders
+          </p>
+          <div className="flex flex-wrap justify-center items-center gap-8 md:gap-16 lg:gap-24 opacity-60 grayscale hover:grayscale-0 transition-all duration-700">
+            <div className="flex items-center gap-2 transition-all hover:text-cyan cursor-default">
+              <Globe className="w-5 h-5 text-neutral-400 inherit-text" />
+              <span className="text-sm font-bold tracking-widest text-neutral-400 uppercase inherit-text">Global Tech</span>
+            </div>
+            <div className="flex items-center gap-2 transition-all hover:text-cyan cursor-default">
+              <Lock className="w-5 h-5 text-neutral-400 inherit-text" />
+              <span className="text-sm font-bold tracking-widest text-neutral-400 uppercase inherit-text">Fintech</span>
+            </div>
+            <div className="flex items-center gap-2 transition-all hover:text-cyan cursor-default">
+              <Shield className="w-5 h-5 text-neutral-400 inherit-text" />
+              <span className="text-sm font-bold tracking-widest text-neutral-400 uppercase inherit-text">Healthcare</span>
+            </div>
+            <div className="flex items-center gap-2 transition-all hover:text-cyan cursor-default hidden md:flex">
+              <Activity className="w-5 h-5 text-neutral-400 inherit-text" />
+              <span className="text-sm font-bold tracking-widest text-neutral-400 uppercase inherit-text">E-Commerce</span>
+            </div>
+            <div className="flex items-center gap-2 transition-all hover:text-cyan cursor-default hidden lg:flex">
+              <Database className="w-5 h-5 text-neutral-400 inherit-text" />
+              <span className="text-sm font-bold tracking-widest text-neutral-400 uppercase inherit-text">Telecom</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Services Section */}
-      <section id="services" className="py-32 bg-[#020202] dark:bg-[#020202] relative fade-in-section overflow-hidden">
+      <section id="services" className="py-24 bg-[#020202] dark:bg-[#020202] relative fade-in-section overflow-hidden">
         {/* Subtle Horizontal glowing line running across the section */}
         <div className="absolute top-[65%] left-0 right-0 h-px bg-gradient-to-r from-transparent via-cyan/20 to-transparent z-0"></div>
 
@@ -388,83 +415,53 @@ export default function App() {
           <div className="mb-16 text-center">
             <h2 className="text-[clamp(1.5rem,3.5vw,2.5rem)] font-bold mb-12 text-white">What We Protect You From</h2>
             
-            {/* Trusted by Industry Leaders Carousel box */}
-            <div className="flex justify-center mb-16">
-              <div className="bg-[#050505] border border-white/5 rounded-2xl px-12 py-6 flex flex-col items-center justify-center max-w-[320px] w-full shadow-2xl transition-all duration-300 hover:border-white/10">
-                <div className="text-[9px] font-bold tracking-widest text-neutral-600 uppercase mb-5">Trusted by Industry Leaders</div>
-                <div className="flex items-center gap-2 mb-6 h-6">
-                  {(() => {
-                    const IconComponent = carouselItems[activeCarouselIndex].icon;
-                    return <IconComponent className="w-4 h-4 text-cyan" />;
-                  })()}
-                  <span className="text-white font-bold tracking-wider uppercase text-sm">{carouselItems[activeCarouselIndex].name}</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <ChevronLeft 
-                    onClick={() => setActiveCarouselIndex((prev) => (prev - 1 + carouselItems.length) % carouselItems.length)}
-                    className="w-4 h-4 text-neutral-600 cursor-pointer hover:text-white transition-colors" 
+            {/* Carousel Controls */}
+            <div className="flex items-center justify-center gap-6 mb-16 relative z-20">
+              <button 
+                onClick={() => setActiveServiceIndex(prev => (prev - 1 + 3) % 3)}
+                className="w-12 h-12 rounded-full border border-white/10 bg-black/50 hover:bg-white/5 hover:border-cyan/50 hover:text-cyan flex items-center justify-center transition-all duration-300 backdrop-blur-md focus:outline-none focus:ring-2 focus:ring-cyan focus:ring-offset-2 focus:ring-offset-[#020202]"
+                aria-label="Previous Service"
+              >
+                <ChevronLeft className="w-6 h-6" />
+              </button>
+              <div className="flex gap-3">
+                {[0, 1, 2].map(idx => (
+                  <button 
+                    key={idx}
+                    onClick={() => setActiveServiceIndex(idx)}
+                    className={`h-2 rounded-full transition-all duration-300 ${activeServiceIndex === idx ? 'w-8 bg-cyan glow-cyan' : 'w-2 bg-white/20 hover:bg-white/40'}`}
+                    aria-label={`Go to slide ${idx + 1}`}
                   />
-                  {carouselItems.map((_, i) => (
-                     <div 
-                       key={i} 
-                       onClick={() => setActiveCarouselIndex(i)}
-                       className={`cursor-pointer transition-all duration-300 ${i === activeCarouselIndex ? 'w-3 h-1.5 rounded-full bg-cyan glow-cyan' : 'w-1.5 h-1.5 rounded-full bg-neutral-700 hover:bg-neutral-500'}`}
-                     ></div>
-                  ))}
-                  <ChevronRight 
-                    onClick={() => setActiveCarouselIndex((prev) => (prev + 1) % carouselItems.length)}
-                    className="w-4 h-4 text-neutral-600 cursor-pointer hover:text-white transition-colors" 
-                  />
-                </div>
+                ))}
               </div>
-            </div>
-
-            {/* Filter Pills */}
-            <div className="flex flex-wrap justify-center gap-3 md:gap-4 mb-20">
               <button 
-                onClick={() => setActiveFilter('ALL')} 
-                className={`px-5 py-2 md:px-6 md:py-2.5 rounded-full font-bold text-xs tracking-wider transition-all duration-300 ${activeFilter === 'ALL' ? 'bg-cyan text-black glow-cyan hover:scale-105 active:scale-95' : 'bg-transparent border border-white/10 text-neutral-400 hover:text-white hover:bg-white/5'}`}
-              >ALL</button>
-              <button 
-                onClick={() => setActiveFilter('MONITORING')} 
-                className={`px-5 py-2 md:px-6 md:py-2.5 rounded-full font-bold text-xs tracking-wider transition-all duration-300 ${activeFilter === 'MONITORING' ? 'bg-cyan text-black glow-cyan hover:scale-105 active:scale-95' : 'bg-transparent border border-white/10 text-neutral-400 hover:text-white hover:bg-white/5'}`}
-              >MONITORING</button>
-              <button 
-                onClick={() => setActiveFilter('DISCOVERY')} 
-                className={`px-5 py-2 md:px-6 md:py-2.5 rounded-full font-bold text-xs tracking-wider transition-all duration-300 ${activeFilter === 'DISCOVERY' ? 'bg-cyan text-black glow-cyan hover:scale-105 active:scale-95' : 'bg-transparent border border-white/10 text-neutral-400 hover:text-white hover:bg-white/5'}`}
-              >DISCOVERY</button>
-              <button 
-                onClick={() => setActiveFilter('ASSESSMENT')} 
-                className={`px-5 py-2 md:px-6 md:py-2.5 rounded-full font-bold text-xs tracking-wider transition-all duration-300 ${activeFilter === 'ASSESSMENT' ? 'bg-cyan text-black glow-cyan hover:scale-105 active:scale-95' : 'bg-transparent border border-white/10 text-neutral-400 hover:text-white hover:bg-white/5'}`}
-              >ASSESSMENT</button>
+                onClick={() => setActiveServiceIndex(prev => (prev + 1) % 3)}
+                className="w-12 h-12 rounded-full border border-white/10 bg-black/50 hover:bg-white/5 hover:border-cyan/50 hover:text-cyan flex items-center justify-center transition-all duration-300 backdrop-blur-md focus:outline-none focus:ring-2 focus:ring-cyan focus:ring-offset-2 focus:ring-offset-[#020202]"
+                aria-label="Next Service"
+              >
+                <ChevronRight className="w-6 h-6" />
+              </button>
             </div>
           </div>
 
-          <motion.div 
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true, margin: "-50px" }}
-            variants={{
-              visible: { transition: { staggerChildren: 0.15 } },
-              hidden: {}
-            }}
-            className="grid grid-cols-1 md:grid-cols-3 gap-6 relative z-10"
-          >
-            <AnimatePresence>
+          <div className="max-w-2xl mx-auto relative z-10 w-full min-h-[450px]">
+            <AnimatePresence mode="wait">
             {/* Card 1 */}
-            {(activeFilter === 'ALL' || activeFilter === 'MONITORING') && (
+            {activeServiceIndex === 0 && (
             <motion.div 
               key="monitoring"
               layout
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.9 }}
-              variants={{
-                hidden: { opacity: 0, y: 30 },
-                visible: { opacity: 1, y: 0, transition: { duration: 0.8, type: "spring", stiffness: 100, damping: 20 } }
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ 
+                opacity: 1, 
+                scale: 1.02, 
+                boxShadow: "0 0 40px rgba(0, 194, 255, 0.15)",
+                y: 0
               }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ duration: 0.6, type: "spring", stiffness: 100, damping: 20 }}
               whileHover="hover"
-              className="cyber-glass-card p-8 group flex flex-col relative"
+              className="cyber-glass-card p-8 group flex flex-col relative ring-1 ring-cyan/20 rounded-2xl"
             >
               <div className="cyber-glass-card-glow"></div>
               {/* Subtle Parallax Background */}
@@ -516,19 +513,21 @@ export default function App() {
             )}
 
             {/* Card 2 */}
-            {(activeFilter === 'ALL' || activeFilter === 'DISCOVERY') && (
+            {activeServiceIndex === 1 && (
             <motion.div 
               key="discovery"
               layout
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.9 }}
-              variants={{
-                hidden: { opacity: 0, y: 30 },
-                visible: { opacity: 1, y: 0, transition: { duration: 0.8, type: "spring", stiffness: 100, damping: 20 } }
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ 
+                opacity: 1, 
+                scale: 1.02, 
+                boxShadow: "0 0 40px rgba(59, 130, 246, 0.15)",
+                y: 0
               }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ duration: 0.6, type: "spring", stiffness: 100, damping: 20 }}
               whileHover="hover"
-              className="cyber-glass-card p-8 group flex flex-col relative"
+              className="cyber-glass-card p-8 group flex flex-col relative ring-1 ring-blue-500/20 rounded-2xl"
             >
               <div className="cyber-glass-card-glow text-blue-500/20" style={{ background: 'radial-gradient(circle, rgba(59,130,246,0.2) 0%, transparent 70%)'}}></div>
               {/* Subtle Parallax Background */}
@@ -569,19 +568,21 @@ export default function App() {
             )}
 
             {/* Card 3 */}
-            {(activeFilter === 'ALL' || activeFilter === 'ASSESSMENT') && (
+            {activeServiceIndex === 2 && (
             <motion.div 
               key="assessment"
               layout
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.9 }}
-              variants={{
-                hidden: { opacity: 0, y: 30 },
-                visible: { opacity: 1, y: 0, transition: { duration: 0.8, type: "spring", stiffness: 100, damping: 20 } }
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ 
+                opacity: 1, 
+                scale: 1.02, 
+                boxShadow: "0 0 40px rgba(168, 85, 247, 0.15)",
+                y: 0
               }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ duration: 0.6, type: "spring", stiffness: 100, damping: 20 }}
               whileHover="hover"
-              className="cyber-glass-card p-8 group flex flex-col relative"
+              className="cyber-glass-card p-8 group flex flex-col relative ring-1 ring-purple-500/20 rounded-2xl"
             >
               <div className="cyber-glass-card-glow text-purple-500/20" style={{ background: 'radial-gradient(circle, rgba(168,85,247,0.2) 0%, transparent 70%)'}}></div>
               {/* Subtle Parallax Background */}
@@ -628,7 +629,7 @@ export default function App() {
             </motion.div>
             )}
             </AnimatePresence>
-          </motion.div>
+          </div>
         </div>
       </section>
 
@@ -797,16 +798,27 @@ export default function App() {
                 <p className="text-neutral-500 text-sm">Customized to your asset size</p>
               </div>
               <ul className="space-y-4 mb-8 flex-grow relative z-10">
-                {['Surface Web Monitoring', 'Basic Vulnerability Scanning', 'Weekly Security Reports', 'Email Alerts'].map((feature, i) => (
-                  <li key={i} className="flex items-start gap-3 text-neutral-300 text-sm">
-                    <Check className="w-4 h-4 text-cyan shrink-0 mt-0.5" />
-                    <span>{feature}</span>
+                {[
+                  {text: 'Up to 2 Monitored Domains', type: 'feature'}, 
+                  {text: 'Surface Web Monitoring', type: 'feature'}, 
+                  {text: 'Basic Vulnerability Scanning', type: 'feature'}, 
+                  {text: 'Weekly Security Reports', type: 'feature'}, 
+                  {text: 'Email Alerts Only', type: 'limit'},
+                  {text: 'No Deep/Dark Web Coverage', type: 'limit'}
+                  ].map((item, i) => (
+                  <li key={i} className={`flex items-start gap-3 text-sm ${item.type === 'limit' ? 'text-neutral-500' : 'text-neutral-300'}`}>
+                    {item.type === 'feature' ? (
+                      <Check className="w-4 h-4 text-cyan shrink-0 mt-0.5" />
+                    ) : (
+                      <X className="w-4 h-4 text-neutral-600 shrink-0 mt-0.5" />
+                    )}
+                    <span>{item.text}</span>
                   </li>
                 ))}
               </ul>
-              <button className="w-full relative z-10 py-3 px-6 rounded-lg border border-white/10 text-white font-semibold hover:bg-white/5 transition-colors focus:outline-none focus:ring-2 focus:ring-cyan focus:ring-offset-2 focus:ring-offset-black mt-auto">
+              <a href="#contact" className="w-full inline-flex justify-center relative z-10 py-3 px-6 rounded-lg border border-white/10 text-white font-semibold hover:bg-white/5 transition-colors focus:outline-none focus:ring-2 focus:ring-cyan focus:ring-offset-2 focus:ring-offset-black mt-auto">
                 Request Quote
-              </button>
+              </a>
             </motion.div>
 
             {/* Professional Tier */}
@@ -841,16 +853,27 @@ export default function App() {
                 <p className="text-neutral-500 text-sm">Customized to your asset size</p>
               </div>
               <ul className="space-y-4 mb-8 flex-grow relative z-10">
-                {['Dark Web Monitoring', 'Attack Surface Discovery', 'Real-time SMS & Email Alerts', 'API Access', 'Monthly Security Assessment'].map((feature, i) => (
-                  <li key={i} className="flex items-start gap-3 text-neutral-300 text-sm">
-                    <Check className="w-4 h-4 text-cyan shrink-0 mt-0.5" />
-                    <span className="group-hover:text-white transition-colors">{feature}</span>
+                {[
+                  {text: 'Up to 10 Monitored Domains', type: 'feature'},
+                  {text: 'Deep & Dark Web Monitoring', type: 'feature'}, 
+                  {text: 'Attack Surface Discovery', type: 'feature'}, 
+                  {text: 'Real-time SMS & Email Alerts', type: 'feature'}, 
+                  {text: 'Monthly Security Assessment', type: 'feature'},
+                  {text: 'No Dedicated Security Analyst', type: 'limit'}
+                  ].map((item, i) => (
+                  <li key={i} className={`flex items-start gap-3 text-sm ${item.type === 'limit' ? 'text-neutral-500' : 'text-neutral-300'}`}>
+                    {item.type === 'feature' ? (
+                      <Check className="w-4 h-4 text-cyan shrink-0 mt-0.5" />
+                    ) : (
+                      <X className="w-4 h-4 text-neutral-600 shrink-0 mt-0.5" />
+                    )}
+                    <span className="group-hover:text-white transition-colors">{item.text}</span>
                   </li>
                 ))}
               </ul>
-              <button className="w-full relative z-10 py-3 px-6 rounded-lg bg-cyan text-black font-bold hover:bg-cyan/90 transition-all duration-300 hover:scale-105 active:scale-95 glow-cyan focus:outline-none focus:ring-2 focus:ring-cyan focus:ring-offset-2 focus:ring-offset-black mt-auto">
+              <a href="#contact" className="w-full inline-flex justify-center relative z-10 py-3 px-6 rounded-lg bg-cyan text-black font-bold hover:bg-cyan/90 transition-all duration-300 hover:scale-105 active:scale-95 glow-cyan focus:outline-none focus:ring-2 focus:ring-cyan focus:ring-offset-2 focus:ring-offset-black mt-auto">
                 Request Quote
-              </button>
+              </a>
             </motion.div>
 
             {/* Enterprise Tier */}
@@ -878,16 +901,27 @@ export default function App() {
                 <p className="text-neutral-500 text-sm">Customized to your asset size</p>
               </div>
               <ul className="space-y-4 mb-8 flex-grow relative z-10">
-                {['Full Red Teaming', 'Dedicated Security Analyst', 'Zero-day Vulnerability Alerts', 'Takedown Services', 'Custom Integrations & Webhooks'].map((feature, i) => (
-                  <li key={i} className="flex items-start gap-3 text-neutral-300 text-sm">
-                    <Check className="w-4 h-4 text-cyan shrink-0 mt-0.5" />
-                    <span>{feature}</span>
+                {[
+                  {text: 'Unlimited Assets & Domains', type: 'feature'}, 
+                  {text: 'Full Red Teaming Operations', type: 'feature'}, 
+                  {text: 'Dedicated Security Analyst', type: 'feature'}, 
+                  {text: 'Zero-day Vulnerability Alerts', type: 'feature'}, 
+                  {text: 'Takedown & Mitigation Services', type: 'feature'},
+                  {text: 'Custom Integrations & Webhooks', type: 'feature'}
+                ].map((item, i) => (
+                  <li key={i} className={`flex items-start gap-3 text-sm ${item.type === 'limit' ? 'text-neutral-500' : 'text-neutral-300'}`}>
+                    {item.type === 'feature' ? (
+                      <Check className="w-4 h-4 text-cyan shrink-0 mt-0.5" />
+                    ) : (
+                      <X className="w-4 h-4 text-neutral-600 shrink-0 mt-0.5" />
+                    )}
+                    <span>{item.text}</span>
                   </li>
                 ))}
               </ul>
-              <button className="w-full relative z-10 py-3 px-6 rounded-lg border border-white/10 text-white font-semibold hover:bg-white/5 transition-colors focus:outline-none focus:ring-2 focus:ring-cyan focus:ring-offset-2 focus:ring-offset-black mt-auto">
+              <a href="#contact" className="w-full inline-flex justify-center relative z-10 py-3 px-6 rounded-lg border border-white/10 text-white font-semibold hover:bg-white/5 transition-colors focus:outline-none focus:ring-2 focus:ring-cyan focus:ring-offset-2 focus:ring-offset-black mt-auto">
                 Request Quote
-              </button>
+              </a>
             </motion.div>
           </motion.div>
         </div>
@@ -1010,7 +1044,7 @@ export default function App() {
       )}
 
       {/* Footer */}
-      <footer className="bg-[#050505] pt-20 pb-8 border-t border-white/5 text-white">
+      <footer id="contact" className="bg-[#050505] pt-20 pb-8 border-t border-white/5 text-white">
         <div className="max-w-7xl mx-auto px-6">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-12">
             {/* Column 1 - Brand */}
@@ -1059,29 +1093,67 @@ export default function App() {
                 <li><a href="#" className="hover:text-cyan focus:outline-none focus:text-cyan transition-colors">Case Studies</a></li>
                 <li><a href="#" className="hover:text-cyan focus:outline-none focus:text-cyan transition-colors">Blog</a></li>
                 <li><a href="#" className="hover:text-cyan focus:outline-none focus:text-cyan transition-colors">Careers</a></li>
-                <li><a href="#" className="hover:text-cyan focus:outline-none focus:text-cyan transition-colors">Contact</a></li>
+                <li><a href="#contact" className="hover:text-cyan focus:outline-none focus:text-cyan transition-colors">Contact</a></li>
               </ul>
             </div>
 
-            {/* Column 4 - Contact Form */}
+            {/* Column 4 - Contact Info & Form */}
             <div className="lg:col-span-4">
-              <h4 className="font-bold mb-6 text-white">Send an Inquiry</h4>
+              <h4 className="font-bold mb-4 text-white">Contact Us</h4>
+              
+              <div className="mb-6 space-y-2 text-sm text-neutral-400">
+                <div className="flex items-center gap-2">
+                  <Mail className="w-4 h-4 text-cyan" />
+                  <a href="mailto:contact@egysafe.com" className="hover:text-cyan transition-colors">contact@egysafe.com</a>
+                </div>
+                <div className="flex items-center gap-2 mt-2">
+                   <div className="w-4 h-4 rounded-full border border-cyan/50 flex items-center justify-center shrink-0">
+                     <div className="w-1.5 h-1.5 bg-cyan rounded-full animate-pulse"></div>
+                   </div>
+                   <span>Cairo, Egypt HQ / Remote MENA</span>
+                </div>
+              </div>
+
               <form className="space-y-3" onSubmit={(e) => { 
                 e.preventDefault(); 
                 const form = e.target as HTMLFormElement;
+                
+                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                if (!emailRegex.test(contactEmail)) {
+                  setContactEmailError('Please enter a valid email address.');
+                  return;
+                }
+                
+                setContactEmailError('');
+
                 const toastId = toast.loading('Sending your message...');
                 setTimeout(() => {
                   toast.success('Message sent! We will contact you soon.', { id: toastId });
                   form.reset();
+                  setContactEmail('');
                 }, 1000);
               }}>
-                <input 
-                  type="email" 
-                  placeholder="Your Email Address" 
-                  className="w-full bg-[#0A0A0A] border border-white/5 rounded-lg px-4 py-2.5 text-sm text-white outline-none placeholder:text-neutral-500 focus:border-cyan/50 focus:ring-1 focus:ring-cyan/50 transition-all cyber-glass-card hover:bg-white/5"
-                  required
-                  aria-label="Your Email Address"
-                />
+                <div>
+                  <input 
+                    type="email" 
+                    value={contactEmail}
+                    onChange={(e) => {
+                      setContactEmail(e.target.value);
+                      if (contactEmailError) setContactEmailError('');
+                    }}
+                    placeholder="Your Email Address" 
+                    className={`w-full bg-[#0A0A0A] border rounded-lg px-4 py-2.5 text-sm text-white outline-none placeholder:text-neutral-500 transition-all cyber-glass-card hover:bg-white/5 ${
+                      contactEmailError 
+                      ? 'border-red-500/50 focus:border-red-500 focus:ring-1 focus:ring-red-500' 
+                      : 'border-white/5 focus:border-cyan/50 focus:ring-1 focus:ring-cyan/50'
+                    }`}
+                    required
+                    aria-label="Your Email Address"
+                  />
+                  {contactEmailError && (
+                    <p className="text-red-500 text-xs mt-1.5 ml-1">{contactEmailError}</p>
+                  )}
+                </div>
                 <textarea 
                   placeholder="How can we help you?" 
                   rows={3}
@@ -1093,6 +1165,42 @@ export default function App() {
                   Send Message
                 </button>
               </form>
+
+              {/* Newsletter Signup */}
+              <div className="pt-8 mt-8 border-t border-white/5">
+                <h4 className="font-bold mb-3 text-white text-sm">Stay Updated</h4>
+                <p className="text-neutral-500 text-xs mb-4">
+                  Get the latest threat intel and security best practices delivered to your inbox.
+                </p>
+                <form 
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    if (!newsletterEmail) return;
+                    const toastId = toast.loading('Subscribing...');
+                    setTimeout(() => {
+                      toast.success('Successfully subscribed to newsletter!', { id: toastId });
+                      setNewsletterEmail('');
+                    }, 1000);
+                  }}
+                  className="flex gap-2"
+                >
+                  <input 
+                    type="email" 
+                    value={newsletterEmail}
+                    onChange={(e) => setNewsletterEmail(e.target.value)}
+                    placeholder="Enter your email" 
+                    className="flex-grow bg-[#0A0A0A] border border-white/5 rounded-lg px-4 py-2 text-xs text-white outline-none placeholder:text-neutral-500 focus:border-cyan/50 focus:ring-1 focus:ring-cyan/50 transition-all cyber-glass-card hover:bg-white/5"
+                    required
+                    aria-label="Newsletter email address"
+                  />
+                  <button 
+                    type="submit"
+                    className="px-4 py-2 bg-white/5 border border-white/10 hover:border-cyan/50 hover:bg-cyan/10 hover:text-cyan text-white rounded-lg font-bold text-xs transition-all duration-300 active:scale-95 flex items-center justify-center shrink-0"
+                  >
+                    Subscribe
+                  </button>
+                </form>
+              </div>
             </div>
           </div>
 

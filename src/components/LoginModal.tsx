@@ -127,6 +127,14 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
                       {isSending ? 'Sending Link...' : 'Send Magic Link'}
                       {!isSending && <ArrowRight className="w-4 h-4" />}
                     </button>
+
+                    <button
+                      type="button"
+                      onClick={handleMagicLink}
+                      className="w-full text-center text-sm text-neutral-500 hover:text-cyan transition-colors"
+                    >
+                      Forgot Password?
+                    </button>
                   </form>
 
                   <div className="relative mb-6 text-center">

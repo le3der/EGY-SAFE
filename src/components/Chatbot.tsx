@@ -38,7 +38,7 @@ export default function Chatbot({ activeSection = 'hero' }: ChatbotProps) {
   const [isStreaming, setIsStreaming] = useState(false); // Tracks active token streaming
   const [hasPromptedContext, setHasPromptedContext] = useState<Record<string, boolean>>({});
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  
+
   // Store the chat session ref
   const chatRef = useRef<any>(null);
 
@@ -76,31 +76,43 @@ export default function Chatbot({ activeSection = 'hero' }: ChatbotProps) {
 
   // Proactive contextual pop-ups based on section
   useEffect(() => {
-    if (activeSection !== 'hero' && !hasPromptedContext[activeSection] && !isLiveAgent) {
+    if (isLiveAgent || hasPromptedContext[activeSection]) {
+      return;
+    }
+
+    const timer = setTimeout(() => {
       setHasPromptedContext(prev => ({ ...prev, [activeSection]: true }));
       
       let contextualMessage = "";
       if (activeSection === 'services') {
-        contextualMessage = "I see you're looking at our Services. Would you like me to explain the difference between Dark Web Monitoring and our Attack Surface Discovery?";
+        contextualMessage = "I see you're exploring our Services. Would you like me to explain the difference between Dark Web Monitoring and Attack Surface Discovery?";
       } else if (activeSection === 'pricing') {
-        contextualMessage = "Reviewing our pricing plans? I can help you decide whether the Advanced or Enterprise tier makes more sense for your organization size.";
-      } else if (activeSection === 'how-it-works') {
-        contextualMessage = "Are you curious about how our C2 Server Intelligence works? I can explain our automated processing pipeline in more detail.";
+        contextualMessage = "Reviewing our pricing plans? I can help you decide whether the Professional or Enterprise tier makes more sense for your organization size.";
+      } else if (activeSection === 'hero') {
+        contextualMessage = "Welcome to Egy Safe! Are you interested in learning how we intercept data before it hits the dark web?";
+      } else if (activeSection === 'why') {
+        contextualMessage = "Curious why security teams choose us? We capture and contextualize more leaked data than standard tools. Let me know if you want details.";
       }
 
-      if (contextualMessage && messages.length <= 1) { // Only prompt if they haven't engaged much
-        setTimeout(() => {
-           setMessages(prev => [...prev, {
-             id: `context-${activeSection}`,
-             role: 'assistant',
-             content: contextualMessage
-           }]);
-           // Automatically open chat to draw attention (optional, user preference)
-           // setIsOpen(true);
-        }, 3000);
+      if (contextualMessage) {
+        setMessages(prev => {
+          // Double check to prevent strict mode dups
+          if (prev.some(m => m.id.startsWith(`context-${activeSection}`))) {
+            return prev;
+          }
+          return [...prev, {
+            id: `context-${activeSection}-${Date.now()}-${Math.random()}`,
+            role: 'assistant',
+            content: contextualMessage
+          }];
+        });
+        
+        setIsOpen(true);
       }
-    }
-  }, [activeSection, isLiveAgent, hasPromptedContext, messages.length]);
+    }, 7000); // 7 seconds of inactivity reading a section
+    
+    return () => clearTimeout(timer);
+  }, [activeSection, isLiveAgent, hasPromptedContext]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });

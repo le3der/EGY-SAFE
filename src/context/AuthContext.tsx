@@ -133,7 +133,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       window.localStorage.setItem('emailForSignIn', email);
       toast.success(`Magic link sent to ${email}`);
     } catch (error: any) {
-      toast.error('Error sending link: ' + error.message);
+      if (error.code === 'auth/operation-not-allowed') {
+        toast.error('Email link login is not enabled in Firebase Console. Please enable "Email/Password" -> "Email link (passwordless sign-in)".', { duration: 6000 });
+      } else {
+        toast.error('Error sending link: ' + error.message);
+      }
       throw error;
     }
   };

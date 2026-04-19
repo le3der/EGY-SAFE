@@ -232,14 +232,14 @@ export default function LiveThreatFeed() {
     }
   };
 
-  const getThreatTypeIcon = (type: string) => {
+  const getThreatTypeIcon = (type: string, className: string = "w-3.5 h-3.5 text-neutral-400") => {
     const lowerType = type.toLowerCase();
-    if (lowerType.includes('credential') || lowerType.includes('password')) return <Key className="w-3.5 h-3.5 text-neutral-400" />;
-    if (lowerType.includes('database') || lowerType.includes('dump')) return <Database className="w-3.5 h-3.5 text-neutral-400" />;
-    if (lowerType.includes('ransomware') || lowerType.includes('malware')) return <Bomb className="w-3.5 h-3.5 text-neutral-400" />;
-    if (lowerType.includes('phishing') || lowerType.includes('domain')) return <Mail className="w-3.5 h-3.5 text-neutral-400" />;
-    if (lowerType.includes('vulnerability') || lowerType.includes('cve') || lowerType.includes('exploit')) return <Bug className="w-3.5 h-3.5 text-neutral-400" />;
-    return <FileWarning className="w-3.5 h-3.5 text-neutral-400" />;
+    if (lowerType.includes('credential') || lowerType.includes('password')) return <Key className={className} />;
+    if (lowerType.includes('database') || lowerType.includes('dump')) return <Database className={className} />;
+    if (lowerType.includes('ransomware') || lowerType.includes('malware')) return <Bomb className={className} />;
+    if (lowerType.includes('phishing') || lowerType.includes('domain')) return <Mail className={className} />;
+    if (lowerType.includes('vulnerability') || lowerType.includes('cve') || lowerType.includes('exploit')) return <Bug className={className} />;
+    return <FileWarning className={className} />;
   };
 
   const formatTime = (dateStrOrDate: string | Date) => {
@@ -442,24 +442,26 @@ export default function LiveThreatFeed() {
                   <div className="flex items-center gap-2 overflow-x-auto no-scrollbar w-full xl:w-auto pb-1 xl:pb-0 mask-edges-right pr-8">
                     <button
                       onClick={() => setActiveTypeFilter('ALL')}
-                      className={`whitespace-nowrap px-3 py-1.5 rounded-full text-[10px] font-bold tracking-widest uppercase transition-all duration-300 border shrink-0 ${
+                      className={`flex items-center gap-1.5 whitespace-nowrap px-3 py-1.5 rounded-full text-[10px] font-bold tracking-widest uppercase transition-all duration-300 border shrink-0 ${
                         activeTypeFilter === 'ALL'
                           ? 'bg-cyan/10 border-cyan/30 text-cyan shadow-[0_0_15px_rgba(0,194,255,0.15)]'
                           : 'border-white/5 bg-white/5 text-neutral-400 hover:text-white hover:bg-white/10 hover:border-white/10'
                       }`}
                     >
+                      <Activity className="w-3 h-3" />
                       All Types
                     </button>
                     {uniqueThreatTypes.map(type => (
                       <button
                         key={type}
                         onClick={() => setActiveTypeFilter(type)}
-                        className={`whitespace-nowrap px-3 py-1.5 rounded-full text-[10px] font-bold tracking-widest uppercase transition-all duration-300 border shrink-0 ${
+                        className={`flex items-center gap-1.5 whitespace-nowrap px-3 py-1.5 rounded-full text-[10px] font-bold tracking-widest uppercase transition-all duration-300 border shrink-0 ${
                           activeTypeFilter === type
                             ? 'bg-cyan/10 border-cyan/30 text-cyan shadow-[0_0_15px_rgba(0,194,255,0.15)]'
                             : 'border-white/5 bg-white/5 text-neutral-400 hover:text-white hover:bg-white/10 hover:border-white/10'
                         }`}
                       >
+                        {getThreatTypeIcon(type, "w-3 h-3")}
                         {type}
                       </button>
                     ))}

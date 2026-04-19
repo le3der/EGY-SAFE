@@ -61,6 +61,13 @@ const VAULT_FILE = path.join(process.cwd(), '.vault.json');
 const ENCRYPTION_KEY = process.env.ENCRYPT_KEY || '12345678901234567890123456789012'; // 32 bytes AES-256
 const IV_LENGTH = 16;
 
+// RSA Key Pair for Client-to-Server Encryption in Transit
+const { publicKey: transitPublicKey, privateKey: transitPrivateKey } = crypto.generateKeyPairSync('rsa', {
+  modulusLength: 2048,
+  publicKeyEncoding: { type: 'spki', format: 'pem' },
+  privateKeyEncoding: { type: 'pkcs8', format: 'pem' }
+});
+
 const loadVault = () => {
   if (fs.existsSync(VAULT_FILE)) {
     return JSON.parse(fs.readFileSync(VAULT_FILE, 'utf-8'));
@@ -136,18 +143,42 @@ async function startServer() {
   });
 
   /* --- Server-Side Vault API --- */
+  app.get("/api/vault/public-key", (req, res) => {
+    res.json({ publicKey: transitPublicKey });
+  });
+
   app.post("/api/vault/keys", (req, res) => {
     try {
-      const { userId, provider, apiKey } = req.body;
-      if (!userId || !provider || !apiKey) {
+      const { userId, provider, encryptedKey, apiKey } = req.body;
+      if (!userId || !provider || (!encryptedKey && !apiKey)) {
         return res.status(400).json({ error: 'Missing required fields' });
+      }
+      
+      let rawApiKey = apiKey;
+
+      if (encryptedKey) {
+        // Decrypt the client-side encrypted key using the Server's Private RSA Key
+        try {
+          const decryptedBuffer = crypto.privateDecrypt(
+            {
+              key: transitPrivateKey,
+              padding: crypto.constants.RSA_PKCS1_OAEP_PADDING,
+              oaepHash: 'sha256'
+            },
+            Buffer.from(encryptedKey, 'base64')
+          );
+          rawApiKey = decryptedBuffer.toString('utf-8');
+        } catch (decErr) {
+          console.error("RSA Decryption Failed:", decErr);
+          return res.status(400).json({ error: 'Failed to decrypt secure payload' });
+        }
       }
       
       const vaultData = loadVault();
       if (!vaultData[userId]) vaultData[userId] = {};
       
       // Encrypt the key symmetrically before saving it completely stripped off the client
-      vaultData[userId][provider] = encrypt(apiKey);
+      vaultData[userId][provider] = encrypt(rawApiKey);
       saveVault(vaultData);
       
       res.json({ success: true, message: 'Key encrypted and stored securely.' });

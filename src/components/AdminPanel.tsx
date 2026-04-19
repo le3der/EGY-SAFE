@@ -7,6 +7,7 @@ import { logUserAction } from '../lib/audit';
 import { Shield, Users, UserCog, Check, Smartphone, KeyRound, ShieldAlert, FileText, Download, KeySquare, Trash2, Save } from 'lucide-react';
 import toast from 'react-hot-toast';
 import MfaSetupModal from './MfaSetupModal';
+import RemediationTasks from './RemediationTasks';
 
 interface UserData {
   id: string;
@@ -76,10 +77,43 @@ export default function AdminPanel() {
     if (!user || !apiKey) return;
     setIsSavingKey(true);
     try {
+      // 1. Fetch the server's public RSA key
+      const pkRes = await fetch('/api/vault/public-key');
+      const pkData = await pkRes.json();
+      
+      // 2. Client-side encryption using Web Crypto API
+      const pemHeader = "-----BEGIN PUBLIC KEY-----";
+      const pemFooter = "-----END PUBLIC KEY-----";
+      const pemContents = pkData.publicKey.substring(pemHeader.length, pkData.publicKey.length - pemFooter.length).replace(/\s/g, '');
+      const binaryDerString = window.atob(pemContents);
+      const binaryDer = new ArrayBuffer(binaryDerString.length);
+      const uint8Array = new Uint8Array(binaryDer);
+      for (let i = 0; i < binaryDerString.length; i++) {
+        uint8Array[i] = binaryDerString.charCodeAt(i);
+      }
+      
+      const cryptoKey = await window.crypto.subtle.importKey(
+        "spki",
+        binaryDer,
+        { name: "RSA-OAEP", hash: "SHA-256" },
+        true,
+        ["encrypt"]
+      );
+      
+      const encodedMessage = new TextEncoder().encode(apiKey);
+      const encryptedBuffer = await window.crypto.subtle.encrypt(
+        { name: "RSA-OAEP" },
+        cryptoKey,
+        encodedMessage
+      );
+      
+      const encryptedBase64 = window.btoa(String.fromCharCode(...new Uint8Array(encryptedBuffer)));
+
+      // 3. Send securely
       const res = await fetch('/api/vault/keys', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user.uid, provider, apiKey })
+        body: JSON.stringify({ userId: user.uid, provider, encryptedKey: encryptedBase64 })
       });
       
       const data = await res.json();
@@ -89,9 +123,9 @@ export default function AdminPanel() {
           setHasVtKey(true);
           setVtKeyInput('');
         }
-        await logUserAction('API Key Updated', `Securely updated ${provider} API key`);
+        await logUserAction('API Key Updated', `Securely encrypted and stored ${provider} API key`);
       } else {
-        throw new Error(data.error);
+        throw new Error(data.error || 'Failed to securely vault key');
       }
     } catch (error: any) {
       toast.error('Failed to save key: ' + error.message);
@@ -393,6 +427,9 @@ export default function AdminPanel() {
           </div>
         </div>
       </div>
+      
+      {/* Remediation Tasks */}
+      <RemediationTasks />
       
       {/* 2FA Setup Modal */}
       <MfaSetupModal isOpen={isMfaModalOpen} onClose={() => setIsMfaModalOpen(false)} />
