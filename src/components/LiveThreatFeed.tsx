@@ -97,6 +97,7 @@ export default function LiveThreatFeed() {
   const [activeSeverityFilter, setActiveSeverityFilter] = useState<'ALL' | Severity>('ALL');
   const [activeTypeFilter, setActiveTypeFilter] = useState<string>('ALL');
   const [activeStatusFilter, setActiveStatusFilter] = useState<'ALL' | ThreatStatus>('active');
+  const [socketStatus, setSocketStatus] = useState<'connected' | 'disconnected' | 'reconnecting'>('disconnected');
 
   const { profile } = useAuth();
   const isAnalystOrAdmin = profile?.role === 'Admin' || profile?.role === 'Analyst';
@@ -104,10 +105,31 @@ export default function LiveThreatFeed() {
 
   useEffect(() => {
     // Connect to WebSocket server running on same origin
-    const socket = io();
+    const socket = io({
+      reconnectionAttempts: 10,
+      reconnectionDelay: 2000,
+      timeout: 10000
+    });
 
     socket.on('connect', () => {
       console.log('Connected to Threat Feed WebSocket stream');
+      setSocketStatus('connected');
+      toast.success('Live connection established', { id: 'socket-status', icon: '⚡' });
+    });
+
+    socket.on('disconnect', (reason) => {
+      console.warn('Disconnected from stream:', reason);
+      setSocketStatus('disconnected');
+      toast.error('Connection lost. Reconnecting...', { id: 'socket-status', duration: Infinity });
+    });
+
+    socket.on('connect_error', () => {
+      setSocketStatus('reconnecting');
+    });
+
+    socket.on('reconnect', () => {
+      setSocketStatus('connected');
+      toast.success('Reconnected to live stream', { id: 'socket-status' });
     });
 
     socket.on('scanning_threat', () => {

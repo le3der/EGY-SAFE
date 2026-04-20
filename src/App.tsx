@@ -1,23 +1,32 @@
 import React, { useEffect, useState, useRef, Suspense } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ShieldAlert, Network, ScanSearch, Lock, Terminal, Globe, ChevronRight, Activity, AlertTriangle, Database, Shield, Eye, Radar, ShieldCheck, Bug, ShoppingCart, Server, Filter, BellRing, Plus, Zap, Linkedin, Twitter, Send, Check, ArrowUp, Sun, Moon, ChevronLeft, ArrowRight, Share2, LogIn, LogOut, Settings, Mail, X, Menu } from 'lucide-react';
-import Chatbot from './components/Chatbot';
-import SecurityAssessmentModal from './components/SecurityAssessmentModal';
+import { ShieldAlert, Network, ScanSearch, Lock, Terminal, Globe, ChevronRight, Activity, AlertTriangle, Database, Shield, Eye, Radar, ShieldCheck, Bug, ShoppingCart, Server, Filter, BellRing, Plus, Zap, Linkedin, Twitter, Send, Check, ArrowUp, Sun, Moon, ChevronLeft, ArrowRight, Share2, LogIn, LogOut, Settings, Mail, X, Menu, Loader2 } from 'lucide-react';
 import DataFlowBackground from './components/DataFlowBackground';
-import ConsultationModal from './components/ConsultationModal';
-import InteractiveTimeline from './components/InteractiveTimeline';
 import LazyImage from './components/LazyImage';
-import MfaVerificationModal from './components/MfaVerificationModal';
-import LoginModal from './components/LoginModal';
-import FreeScanSection from './components/FreeScanSection';
 import { Toaster, toast } from 'react-hot-toast';
 import { useAuth } from './context/AuthContext';
 import { trackEvent } from './lib/analytics';
+
+// Lazy loaded heavy components
+const Chatbot = React.lazy(() => import('./components/Chatbot'));
+const SecurityAssessmentModal = React.lazy(() => import('./components/SecurityAssessmentModal'));
+const ConsultationModal = React.lazy(() => import('./components/ConsultationModal'));
+const InteractiveTimeline = React.lazy(() => import('./components/InteractiveTimeline'));
+const MfaVerificationModal = React.lazy(() => import('./components/MfaVerificationModal'));
+const LoginModal = React.lazy(() => import('./components/LoginModal'));
+const FreeScanSection = React.lazy(() => import('./components/FreeScanSection'));
 
 const LiveThreatFeed = React.lazy(() => import('./components/LiveThreatFeed'));
 const EgyptDarkWebScanner = React.lazy(() => import('./components/EgyptDarkWebScanner'));
 const AdminPanel = React.lazy(() => import('./components/AdminPanel'));
 const ClientDashboard = React.lazy(() => import('./components/ClientDashboard'));
+
+// Fallback component for lazy loading boundaries
+const SuspenseFallback = () => (
+  <div className="flex justify-center items-center p-12 min-h-[50vh]">
+    <Loader2 className="w-8 h-8 animate-spin text-cyan" />
+  </div>
+);
 
 const StatCounter = ({ end, prefix = '', suffix = '', duration = 2000, delay = 0 }: { end: number, prefix?: string, suffix?: string, duration?: number, delay?: number }) => {
   const [count, setCount] = useState(0);
@@ -295,12 +304,16 @@ export default function App() {
       </nav>
 
       {/* Login Modal */}
-      <LoginModal isOpen={isLoginModalOpen} onClose={() => setIsLoginModalOpen(false)} />
+      <Suspense fallback={null}>
+        <LoginModal isOpen={isLoginModalOpen} onClose={() => setIsLoginModalOpen(false)} />
+      </Suspense>
 
       {/* Hero Section */}
       <section className="relative pt-32 pb-20 lg:pt-48 lg:pb-32 min-h-[90vh] flex flex-col justify-center overflow-hidden bg-black text-white">
         {/* Animated Cyber Background */}
-        <DataFlowBackground />
+        <Suspense fallback={<SuspenseFallback />}>
+          <DataFlowBackground />
+        </Suspense>
         
         {/* Subtle top/bottom fade to blend with standard sections */}
         <div className="absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-black to-transparent pointer-events-none z-0"></div>
@@ -421,7 +434,9 @@ export default function App() {
       </div>
 
       {/* Free Scan Section */}
-      <FreeScanSection />
+      <Suspense fallback={<SuspenseFallback />}>
+        <FreeScanSection />
+      </Suspense>
 
       {/* Live Threat Feed Section */}
       <Suspense fallback={<div className="h-96 flex items-center justify-center text-cyan animate-pulse">Loading Threat Feed...</div>}>
@@ -699,7 +714,9 @@ export default function App() {
             <p className="text-neutral-400 text-lg">From stolen device to real-time alert — here's our end-to-end process.</p>
           </div>
 
-          <InteractiveTimeline />
+          <Suspense fallback={<SuspenseFallback />}>
+            <InteractiveTimeline />
+          </Suspense>
         </div>
       </section>
 
@@ -1297,15 +1314,17 @@ export default function App() {
         <ArrowUp className="w-5 h-5 text-cyan" />
       </button>
       
-      <Chatbot activeSection={activeSection} />
-      <SecurityAssessmentModal 
-        isOpen={isAssessmentModalOpen} 
-        onClose={() => setIsAssessmentModalOpen(false)} 
-      />
-      <ConsultationModal 
-        isOpen={isConsultationModalOpen}
-        onClose={() => setIsConsultationModalOpen(false)}
-      />
+      <Suspense fallback={null}>
+        <Chatbot activeSection={activeSection} />
+        <SecurityAssessmentModal 
+          isOpen={isAssessmentModalOpen} 
+          onClose={() => setIsAssessmentModalOpen(false)} 
+        />
+        <ConsultationModal 
+          isOpen={isConsultationModalOpen}
+          onClose={() => setIsConsultationModalOpen(false)}
+        />
+      </Suspense>
 
       {/* Sticky Enterprise Consultation Pill */}
       <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-40 transition-all duration-500 ${isScrolled ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10 pointer-events-none'}`}>

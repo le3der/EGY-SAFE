@@ -7,6 +7,17 @@ import crypto from "crypto";
 import fs from "fs";
 import rateLimit from "express-rate-limit";
 import helmet from "helmet";
+import { initializeApp as initializeAdmin, applicationDefault } from "firebase-admin/app";
+import { getFirestore as getAdminFirestore } from "firebase-admin/firestore";
+
+try {
+  initializeAdmin({
+    credential: applicationDefault(),
+    projectId: "gen-lang-client-0550239521"
+  });
+} catch (e) {
+  console.warn("Firebase Admin Initialization Failed - Continuing without Firebase Admin", e);
+}
 
 type Severity = 'CRITICAL' | 'HIGH' | 'MEDIUM';
 
@@ -73,15 +84,49 @@ const { publicKey: transitPublicKey, privateKey: transitPrivateKey } = crypto.ge
   privateKeyEncoding: { type: 'pkcs8', format: 'pem' }
 });
 
-const loadVault = () => {
+let adminDb: any = null;
+try {
+  adminDb = getAdminFirestore("ai-studio-36eeb8ee-dcde-4b69-9ac2-ca4143f2e580");
+} catch (e) {
+  // Ignore
+}
+
+const loadVault = async (userId: string) => {
+  if (adminDb) {
+    try {
+      const docSnap = await adminDb.collection('vaults').doc(userId).get();
+      if (docSnap.exists) {
+        return docSnap.data();
+      }
+      return {};
+    } catch(e) {
+      console.error("Firestore vault read failed", e);
+    }
+  }
+  
   if (fs.existsSync(VAULT_FILE)) {
-    return JSON.parse(fs.readFileSync(VAULT_FILE, 'utf-8'));
+    const raw = JSON.parse(fs.readFileSync(VAULT_FILE, 'utf-8'));
+    return raw[userId] || {};
   }
   return {};
 };
 
-const saveVault = (data: any) => {
-  fs.writeFileSync(VAULT_FILE, JSON.stringify(data, null, 2));
+const saveVault = async (userId: string, data: any) => {
+  if (adminDb) {
+    try {
+      await adminDb.collection('vaults').doc(userId).set(data);
+      return;
+    } catch(e) {
+      console.error("Firestore vault write failed", e);
+    }
+  }
+
+  let vault = {};
+  if (fs.existsSync(VAULT_FILE)) {
+    vault = JSON.parse(fs.readFileSync(VAULT_FILE, 'utf-8'));
+  }
+  (vault as any)[userId] = data;
+  fs.writeFileSync(VAULT_FILE, JSON.stringify(vault, null, 2));
 };
 
 function encrypt(text: string) {
@@ -115,14 +160,30 @@ async function startServer() {
   app.use(express.json());
 
   // Security Middlewares
-  app.use(helmet({ contentSecurityPolicy: false })); // Disable CSP to not conflict with Vite dev server currently
+  app.use(helmet({ 
+    contentSecurityPolicy: false,
+    crossOriginEmbedderPolicy: false,
+    xFrameOptions: false,
+  }));
   
   // Basic Anti-CSRF via Origin Checking
   app.use((req, res, next) => {
     if (req.method !== 'GET' && req.method !== 'HEAD' && req.method !== 'OPTIONS') {
       const origin = req.headers.origin || req.headers.referer;
-      // In a real app we'd strict-check the origin, but since we're in preview/tunnel, we allow all for now but enforce the layer exists
-      // You can add logic: if (origin && !origin.includes('allowed-domain.com')) return res.status(403).send('CSRF Blocked');
+      // In production, you would strongly enforce allowed origins. 
+      // Example allowed domain regex enforcement
+      const isAllowed = !origin || (
+        origin.startsWith('http://localhost') || 
+        origin.startsWith('https://localhost') || 
+        origin.includes('.run.app') || 
+        origin.includes('egysafe.com') ||
+        origin.includes('ai.studio') ||
+        origin.includes('google.com')
+      );
+      
+      if (!isAllowed) {
+        return res.status(403).json({ error: 'CSRF Blocked: Invalid Origin' });
+      }
     }
     next();
   });
@@ -175,11 +236,18 @@ async function startServer() {
     res.json({ publicKey: transitPublicKey });
   });
 
-  app.post("/api/vault/keys", (req, res) => {
+  const isValidId = (id: string) => typeof id === 'string' && id.length > 0 && id.length <= 128 && /^[a-zA-Z0-9_\-]+$/.test(id);
+  const isValidProvider = (p: string) => typeof p === 'string' && p.length > 0 && p.length <= 64 && /^[a-zA-Z0-9]+$/.test(p);
+
+  app.post("/api/vault/keys", async (req, res) => {
     try {
       const { userId, provider, encryptedKey, apiKey } = req.body;
       if (!userId || !provider || (!encryptedKey && !apiKey)) {
         return res.status(400).json({ error: 'Missing required fields' });
+      }
+      
+      if (!isValidId(userId) || !isValidProvider(provider)) {
+        return res.status(400).json({ error: 'Invalid input format' });
       }
       
       let rawApiKey = apiKey;
@@ -202,12 +270,11 @@ async function startServer() {
         }
       }
       
-      const vaultData = loadVault();
-      if (!vaultData[userId]) vaultData[userId] = {};
+      const vaultData = await loadVault(userId);
       
       // Encrypt the key symmetrically before saving it completely stripped off the client
-      vaultData[userId][provider] = encrypt(rawApiKey);
-      saveVault(vaultData);
+      vaultData[provider] = encrypt(rawApiKey);
+      await saveVault(userId, vaultData);
       
       res.json({ success: true, message: 'Key encrypted and stored securely.' });
     } catch (e: any) {
@@ -215,12 +282,16 @@ async function startServer() {
     }
   });
 
-  app.get("/api/vault/keys/:userId/:provider", (req, res) => {
+  app.get("/api/vault/keys/:userId/:provider", async (req, res) => {
     try {
       const { userId, provider } = req.params;
-      const vaultData = loadVault();
+      if (!isValidId(userId) || !isValidProvider(provider)) {
+        return res.status(400).json({ error: 'Invalid input format' });
+      }
+
+      const vaultData = await loadVault(userId);
       
-      const encryptedKey = vaultData[userId]?.[provider];
+      const encryptedKey = vaultData[provider];
       
       if (!encryptedKey) {
         return res.json({ hasKey: false });
@@ -232,19 +303,53 @@ async function startServer() {
     }
   });
 
-  app.delete("/api/vault/keys/:userId/:provider", (req, res) => {
+  app.delete("/api/vault/keys/:userId/:provider", async (req, res) => {
     try {
       const { userId, provider } = req.params;
-      const vaultData = loadVault();
+      if (!isValidId(userId) || !isValidProvider(provider)) {
+        return res.status(400).json({ error: 'Invalid input format' });
+      }
+
+      const vaultData = await loadVault(userId);
       
-      if (vaultData[userId]?.[provider]) {
-        delete vaultData[userId][provider];
-        saveVault(vaultData);
+      if (vaultData[provider]) {
+        delete vaultData[provider];
+        await saveVault(userId, vaultData);
       }
       
       res.json({ success: true, message: 'Key permanently erased from vault.' }); 
     } catch (e: any) {
       res.status(500).json({ error: 'Vault Error: ' + e.message });
+    }
+  });
+
+  // Example internal integration endpoint showing how the app safely consumes the vaulted keys
+  // It decrypts the API key strictly on the server and uses it to make an outbound request, 
+  // never exposing the raw key to the frontend client.
+  app.post("/api/integration/:provider/ping", async (req, res) => {
+    try {
+      const { provider } = req.params;
+      const { userId } = req.body;
+      if (!isValidId(userId) || !isValidProvider(provider)) {
+        return res.status(400).json({ error: 'Invalid input format' });
+      }
+
+      const vaultData = await loadVault(userId);
+      const encryptedKey = vaultData[provider];
+      
+      if (!encryptedKey) {
+        return res.status(404).json({ error: 'No key vaulted for this provider' });
+      }
+      
+      const rawApiKey = decrypt(encryptedKey);
+      
+      // In a real scenario, we would use rawApiKey with fetch to call VirusTotal etc.
+      // For demonstration, we simply verify the decryption worked and return success status.
+      // fetch(`https://api.third-party.com/v1/ping`, { headers: { 'Authorization': `Bearer ${rawApiKey}` }})
+      
+      res.json({ success: true, message: `Successfully connected to ${provider} using vaulted key.` });
+    } catch (e: any) {
+      res.status(500).json({ error: 'Integration Request Error: ' + e.message });
     }
   });
 

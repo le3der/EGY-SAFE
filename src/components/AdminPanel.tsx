@@ -141,6 +141,15 @@ export default function AdminPanel() {
 
   const deleteApiKey = async (provider: string) => {
     if (!user) return;
+    if (profile?.role !== 'Admin') {
+      toast.error('Unauthorized: Admin access required to delete keys');
+      return;
+    }
+    
+    if (!window.confirm(`Are you sure you want to permanently delete the ${provider} API Key? This action cannot be undone and may break integrations.`)) {
+      return;
+    }
+
     try {
       const res = await fetch(`/api/vault/keys/${user.uid}/${provider}`, {
         method: 'DELETE'
@@ -186,6 +195,15 @@ export default function AdminPanel() {
   };
 
   const handleRoleChangeFix = async (userId: string, newRole: UserRole) => {
+    if (profile?.role !== 'Admin') {
+      toast.error('Unauthorized: Admin access required to change user roles');
+      return;
+    }
+
+    if (!window.confirm(`Are you sure you want to change this user's role to ${newRole}?`)) {
+      return;
+    }
+
     try {
       const toastId = toast.loading('Updating role...');
       const userRef = doc(db, 'users', userId);
@@ -206,8 +224,17 @@ export default function AdminPanel() {
   };
 
   const handleUnenrollMfa = async (uid: string) => {
+    if (!user) return;
+    if (profile?.role !== 'Admin') {
+      toast.error('Unauthorized: Admin access required to modify MFA settings');
+      return;
+    }
+
+    if (!window.confirm("Are you sure you want to remove this 2FA method? This will reduce the security of your account.")) {
+      return;
+    }
+
     try {
-      if (!user) return;
       await multiFactor(user).unenroll(uid);
       setEnrolledFactors(multiFactor(user).enrolledFactors || []);
       toast.success('Removed 2FA method');

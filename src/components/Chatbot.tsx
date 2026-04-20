@@ -112,7 +112,8 @@ export default function Chatbot({ activeSection = 'hero' }: ChatbotProps) {
           }];
         });
         
-        setIsOpen(true);
+        // Remove `setIsOpen(true);` so the chat window only updates silently and only shows when the user clicks.
+        // It provides contextual hints without interrupting the flow by popping up.
       }
     }, 7000); // 7 seconds of inactivity reading a section
     
@@ -375,13 +376,31 @@ export default function Chatbot({ activeSection = 'hero' }: ChatbotProps) {
       </AnimatePresence>
 
       <button
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={() => {
+          setIsOpen(!isOpen);
+          // Assuming `hasUnread` logic would go here if we tracked it fully, 
+          // but for now just toggle normal open/close behavior.
+        }}
         className={`fixed bottom-6 right-6 w-14 h-14 rounded-full flex items-center justify-center shadow-[0_0_30px_rgba(0,194,255,0.3)] transition-all duration-300 z-50 focus:outline-none hover:scale-105 active:scale-95 ${
-          isOpen ? 'bg-white/10 border border-white/20 text-white' : 'bg-cyan text-black glow-cyan'
+          isOpen ? 'bg-white/10 border border-white/20 text-white' : 'bg-cyan text-black glow-cyan group'
         }`}
         aria-label="Toggle chat"
       >
-        {isOpen ? <X className="w-6 h-6" /> : <MessageSquare className="w-6 h-6" />}
+        {isOpen ? (
+          <X className="w-6 h-6" />
+        ) : (
+          <div className="relative flex items-center justify-center w-full h-full">
+            <MessageSquare className="w-6 h-6" />
+            
+            {/* Draw attention indicator if closed but messages exist beyond welcome */}
+            {messages.length > 1 && (
+              <span className="absolute top-0 right-0 flex w-3 h-3 translate-x-1/2 -translate-y-1/4">
+                <span className="absolute inline-flex w-full h-full bg-white rounded-full opacity-75 animate-ping"></span>
+                <span className="relative inline-flex w-3 h-3 bg-white rounded-full"></span>
+              </span>
+            )}
+          </div>
+        )}
       </button>
     </>
   );
