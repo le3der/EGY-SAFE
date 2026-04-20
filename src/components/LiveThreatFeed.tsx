@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ShieldAlert, AlertTriangle, AlertCircle, Activity, Globe, Lock, Loader2, Key, Database, FileWarning, Mail, Bomb, Bug, Download, Play, Pause, RotateCcw } from 'lucide-react';
+import { ShieldAlert, AlertTriangle, AlertCircle, Activity, Globe, Lock, Loader2, Key, Database, FileWarning, Mail, Bomb, Bug, Download, Play, Pause, RotateCcw, Hook, DoorOpen, Skull, Zap, Fish, MailWarning } from 'lucide-react';
 import { io } from 'socket.io-client';
 import { logUserAction } from '../lib/audit';
 import { useAuth } from '../context/AuthContext';
@@ -234,11 +234,22 @@ export default function LiveThreatFeed() {
 
   const getThreatTypeIcon = (type: string, className: string = "w-3.5 h-3.5 text-neutral-400") => {
     const lowerType = type.toLowerCase();
+    
+    // Explicit mappings for our core threat types
+    if (lowerType.includes('credential leak')) return <Key className={className} />;
+    if (lowerType.includes('database dump')) return <Database className={className} />;
+    if (lowerType.includes('ransomware sighting')) return <Skull className={className} />;
+    if (lowerType.includes('phishing campaign')) return <Fish className={className} />;
+    if (lowerType.includes('ddos planning')) return <Zap className={className} />;
+    if (lowerType.includes('initial access broker')) return <DoorOpen className={className} />;
+    if (lowerType.includes('zero-day') || lowerType.includes('exploit')) return <Bug className={className} />;
+
+    // Fallbacks
     if (lowerType.includes('credential') || lowerType.includes('password')) return <Key className={className} />;
-    if (lowerType.includes('database') || lowerType.includes('dump')) return <Database className={className} />;
-    if (lowerType.includes('ransomware') || lowerType.includes('malware')) return <Bomb className={className} />;
-    if (lowerType.includes('phishing') || lowerType.includes('domain')) return <Mail className={className} />;
-    if (lowerType.includes('vulnerability') || lowerType.includes('cve') || lowerType.includes('exploit')) return <Bug className={className} />;
+    if (lowerType.includes('database')) return <Database className={className} />;
+    if (lowerType.includes('ransomware') || lowerType.includes('malware')) return <Skull className={className} />;
+    if (lowerType.includes('phishing') || lowerType.includes('domain')) return <Fish className={className} />;
+    if (lowerType.includes('vulnerability') || lowerType.includes('cve')) return <Bug className={className} />;
     return <FileWarning className={className} />;
   };
 

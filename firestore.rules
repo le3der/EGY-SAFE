@@ -90,5 +90,24 @@ service cloud.firestore {
       allow create: if isValidAnalyticsEvent(incoming());
       allow update, delete: if false;
     }
+
+    match /assets/{assetId} {
+      function isValidAsset(data) {
+        return data.keys().hasAll(['value', 'type', 'ownerId', 'createdAt'])
+          && data.size() == 4
+          && data.value is string && data.value.size() <= 256
+          && data.type is string && (data.type == 'DOMAIN' || data.type == 'IP')
+          && data.ownerId is string && data.ownerId.size() <= 128
+          && data.createdAt == request.time;
+      }
+
+      allow read: if isSignedIn() && (isEffectiveAdmin() || resource.data.ownerId == request.auth.uid);
+      allow create: if isSignedIn()
+                    && request.auth.token.email_verified == true
+                    && isValidAsset(incoming())
+                    && incoming().ownerId == request.auth.uid;
+      allow update: if false;
+      allow delete: if isSignedIn() && (isEffectiveAdmin() || existing().ownerId == request.auth.uid);
+    }
   }
 }

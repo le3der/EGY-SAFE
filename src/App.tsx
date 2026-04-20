@@ -10,6 +10,7 @@ import ConsultationModal from './components/ConsultationModal';
 import InteractiveTimeline from './components/InteractiveTimeline';
 import LazyImage from './components/LazyImage';
 import AdminPanel from './components/AdminPanel';
+import ClientDashboard from './components/ClientDashboard';
 import MfaVerificationModal from './components/MfaVerificationModal';
 import LoginModal from './components/LoginModal';
 import { Toaster, toast } from 'react-hot-toast';
@@ -206,6 +207,11 @@ export default function App() {
                 {profile?.role === 'Admin' && (
                   <a href="#admin" className="p-2 text-neutral-400 hover:text-cyan transition-colors" title="Admin Panel">
                     <Settings className="w-5 h-5" />
+                  </a>
+                )}
+                {profile?.role === 'Viewer' && (
+                  <a href="#dashboard" className="p-2 text-neutral-400 hover:text-cyan transition-colors" title="Client Dashboard">
+                    <Activity className="w-5 h-5" />
                   </a>
                 )}
                 <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full border border-white/10 bg-white/5 text-xs font-medium text-white">
@@ -1039,6 +1045,15 @@ export default function App() {
         <section id="admin" className="py-24 relative bg-black border-t border-white/5 text-white">
           <div className="max-w-7xl mx-auto px-6">
             <AdminPanel />
+          </div>
+        </section>
+      )}
+
+      {/* Client Dashboard Section */}
+      {user && profile?.role === 'Viewer' && (
+        <section id="dashboard" className="py-24 relative bg-black border-t border-white/5 text-white">
+          <div className="max-w-7xl mx-auto px-6">
+            <ClientDashboard />
           </div>
         </section>
       )}

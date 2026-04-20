@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ShieldAlert, AlertTriangle, AlertCircle, Activity, Lock, Loader2, Key, Database, FileWarning, Mail, Bomb, Bug, Download, MapPin } from 'lucide-react';
+import { ShieldAlert, AlertTriangle, AlertCircle, Activity, Lock, Loader2, Key, Database, FileWarning, Mail, Bomb, Bug, Download, MapPin, Hook, DoorOpen, Skull, Zap, Fish, MailWarning } from 'lucide-react';
 import { logUserAction } from '../lib/audit';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
@@ -132,10 +132,18 @@ export default function EgyptDarkWebScanner() {
 
   const getThreatTypeIcon = (type: string, className: string = "w-3.5 h-3.5 text-neutral-400") => {
     const lowerType = type.toLowerCase();
+    
+    if (lowerType.includes('credential leak')) return <Key className={className} />;
+    if (lowerType.includes('database dump')) return <Database className={className} />;
+    if (lowerType.includes('ransomware mention')) return <Skull className={className} />;
+    if (lowerType.includes('phishing domain')) return <Fish className={className} />;
+    if (lowerType.includes('source code leak')) return <Bug className={className} />;
+
+    // Fallbacks
     if (lowerType.includes('credential')) return <Key className={className} />;
     if (lowerType.includes('database')) return <Database className={className} />;
-    if (lowerType.includes('ransomware')) return <Bomb className={className} />;
-    if (lowerType.includes('phishing')) return <Mail className={className} />;
+    if (lowerType.includes('ransomware')) return <Skull className={className} />;
+    if (lowerType.includes('phishing')) return <Fish className={className} />;
     if (lowerType.includes('source code')) return <Bug className={className} />;
     return <FileWarning className={className} />;
   };
@@ -360,6 +368,13 @@ export default function EgyptDarkWebScanner() {
             </div>
 
             {/* Feed List */}
+            <div className="bg-[#0A0A0A] border-b border-white/5 px-4 py-2 flex items-center justify-between">
+              <h3 className="text-sm font-bold text-white uppercase tracking-widest flex items-center gap-2">
+                <Activity className="w-4 h-4 text-red" /> Scan Results
+              </h3>
+              <span className="text-xs text-neutral-500 font-mono">Real-time mapping</span>
+            </div>
+            
             <div aria-live="polite" className="p-4 h-[500px] overflow-y-auto no-scrollbar relative flex flex-col gap-3 font-mono">
               <AnimatePresence initial={false}>
                 {isScanning && (
