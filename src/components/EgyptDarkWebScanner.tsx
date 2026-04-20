@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ShieldAlert, AlertTriangle, AlertCircle, Activity, Lock, Loader2, Key, Database, FileWarning, Mail, Bomb, Bug, Download, MapPin, Hook, DoorOpen, Skull, Zap, Fish, MailWarning } from 'lucide-react';
+import { ShieldAlert, AlertTriangle, AlertCircle, Activity, Lock, Loader2, Key, Database, FileWarning, Mail, Bomb, Bug, Download, MapPin, DoorOpen, Skull, Zap, Fish, MailWarning } from 'lucide-react';
 import { logUserAction } from '../lib/audit';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
@@ -65,11 +65,13 @@ export default function EgyptDarkWebScanner() {
   useEffect(() => {
     if (isPaused) return;
 
+    let timeoutId: NodeJS.Timeout;
+
     const interval = setInterval(() => {
       // Simulate real-time scanning delay
       setIsScanning(true);
       
-      setTimeout(() => {
+      timeoutId = setTimeout(() => {
         setIsScanning(false);
         // 30% chance to find a new threat during this cycle
         if (Math.random() > 0.7) {
@@ -92,7 +94,10 @@ export default function EgyptDarkWebScanner() {
       }, 2000);
     }, 8000);
 
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      if (timeoutId) clearTimeout(timeoutId);
+    };
   }, [isPaused]);
 
   const markThreatStatus = (id: string, newStatus: ThreatStatus) => {

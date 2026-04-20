@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { User, onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut, getMultiFactorResolver, MultiFactorResolver, TotpMultiFactorGenerator, sendSignInLinkToEmail, isSignInWithEmailLink, signInWithEmailLink } from 'firebase/auth';
+import { User, onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut, getMultiFactorResolver, MultiFactorResolver, TotpMultiFactorGenerator, sendSignInLinkToEmail, isSignInWithEmailLink, signInWithEmailLink, createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail, sendEmailVerification } from 'firebase/auth';
 import { doc, getDoc, setDoc, serverTimestamp, onSnapshot } from 'firebase/firestore';
 import { auth, db } from '../lib/firebase';
 import { logUserAction } from '../lib/audit';
@@ -21,6 +21,9 @@ interface AuthContextType {
   verifyMfa: (code: string) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
   sendMagicLink: (email: string) => Promise<void>;
+  signInWithEmail: (email: string, pass: string) => Promise<void>;
+  signUpWithEmail: (email: string, pass: string) => Promise<void>;
+  resetPassword: (email: string) => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -33,6 +36,9 @@ const AuthContext = createContext<AuthContextType>({
   verifyMfa: async () => {},
   signInWithGoogle: async () => {},
   sendMagicLink: async () => {},
+  signInWithEmail: async () => {},
+  signUpWithEmail: async () => {},
+  resetPassword: async () => {},
   logout: async () => {},
 });
 
@@ -142,6 +148,49 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const signInWithEmail = async (email: string, pass: string) => {
+    try {
+      const cred = await signInWithEmailAndPassword(auth, email, pass);
+      if (!cred.user.emailVerified) {
+        toast.error('Please verify your email before logging in.');
+        await signOut(auth);
+        return;
+      }
+      toast.success('Successfully logged in');
+      await logUserAction('User Login', 'User authenticated via Email/Password');
+    } catch (error: any) {
+      if (error.code === 'auth/multi-factor-auth-required') {
+        const resolver = getMultiFactorResolver(auth, error);
+        setMfaResolver(resolver);
+      } else {
+        toast.error('Login failed: ' + error.message);
+      }
+      throw error;
+    }
+  };
+
+  const signUpWithEmail = async (email: string, pass: string) => {
+    try {
+      const cred = await createUserWithEmailAndPassword(auth, email, pass);
+      await sendEmailVerification(cred.user);
+      toast.success('Account created! Please check your email to verify.');
+      await signOut(auth); // Log them out until verified
+    } catch (error: any) {
+      toast.error('Signup failed: ' + error.message);
+      throw error;
+    }
+  };
+
+  const resetPassword = async (email: string) => {
+    try {
+      await sendPasswordResetEmail(auth, email);
+      toast.success('Password reset email sent. Please check your inbox.');
+    } catch (error: any) {
+      toast.error('Password reset failed: ' + error.message);
+      throw error;
+    }
+  };
+
   const signInWithGoogle = async () => {
     const provider = new GoogleAuthProvider();
     try {
@@ -186,7 +235,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, mfaResolver, cancelMfaLogin, verifyMfa, signInWithGoogle, sendMagicLink, logout }}>
+    <AuthContext.Provider value={{ user, profile, loading, mfaResolver, cancelMfaLogin, verifyMfa, signInWithGoogle, sendMagicLink, signInWithEmail, signUpWithEmail, resetPassword, logout }}>
       {children}
     </AuthContext.Provider>
   );

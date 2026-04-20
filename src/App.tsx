@@ -1,21 +1,23 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, Suspense } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ShieldAlert, Network, ScanSearch, Lock, Terminal, Globe, ChevronRight, Activity, AlertTriangle, Database, Shield, Eye, Radar, ShieldCheck, Bug, ShoppingCart, Server, Filter, BellRing, Plus, Zap, Linkedin, Twitter, Send, Check, ArrowUp, Sun, Moon, ChevronLeft, ArrowRight, Share2, LogIn, LogOut, Settings, Mail, X } from 'lucide-react';
+import { ShieldAlert, Network, ScanSearch, Lock, Terminal, Globe, ChevronRight, Activity, AlertTriangle, Database, Shield, Eye, Radar, ShieldCheck, Bug, ShoppingCart, Server, Filter, BellRing, Plus, Zap, Linkedin, Twitter, Send, Check, ArrowUp, Sun, Moon, ChevronLeft, ArrowRight, Share2, LogIn, LogOut, Settings, Mail, X, Menu } from 'lucide-react';
 import Chatbot from './components/Chatbot';
-import LiveThreatFeed from './components/LiveThreatFeed';
-import EgyptDarkWebScanner from './components/EgyptDarkWebScanner';
 import SecurityAssessmentModal from './components/SecurityAssessmentModal';
 import DataFlowBackground from './components/DataFlowBackground';
 import ConsultationModal from './components/ConsultationModal';
 import InteractiveTimeline from './components/InteractiveTimeline';
 import LazyImage from './components/LazyImage';
-import AdminPanel from './components/AdminPanel';
-import ClientDashboard from './components/ClientDashboard';
 import MfaVerificationModal from './components/MfaVerificationModal';
 import LoginModal from './components/LoginModal';
+import FreeScanSection from './components/FreeScanSection';
 import { Toaster, toast } from 'react-hot-toast';
 import { useAuth } from './context/AuthContext';
 import { trackEvent } from './lib/analytics';
+
+const LiveThreatFeed = React.lazy(() => import('./components/LiveThreatFeed'));
+const EgyptDarkWebScanner = React.lazy(() => import('./components/EgyptDarkWebScanner'));
+const AdminPanel = React.lazy(() => import('./components/AdminPanel'));
+const ClientDashboard = React.lazy(() => import('./components/ClientDashboard'));
 
 const StatCounter = ({ end, prefix = '', suffix = '', duration = 2000, delay = 0 }: { end: number, prefix?: string, suffix?: string, duration?: number, delay?: number }) => {
   const [count, setCount] = useState(0);
@@ -79,6 +81,7 @@ export default function App() {
   // Theme state
   const [theme, setTheme] = useState<'light' | 'dark'>('dark');
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [contactEmail, setContactEmail] = useState('');
   const [contactEmailError, setContactEmailError] = useState('');
   const [newsletterEmail, setNewsletterEmail] = useState('');
@@ -152,8 +155,13 @@ export default function App() {
     const sections = document.querySelectorAll('.fade-in-section');
     sections.forEach(section => sectionObserver.observe(section));
 
+    // Custom listener for FreeScan CTA
+    const handleOpenConsultation = () => setIsConsultationModalOpen(true);
+    window.addEventListener('open-consultation', handleOpenConsultation as EventListener);
+
     return () => {
       window.removeEventListener('scroll', handleScroll);
+      window.removeEventListener('open-consultation', handleOpenConsultation as EventListener);
       stepObserver.disconnect();
       sectionObserver.disconnect();
     };
@@ -245,8 +253,45 @@ export default function App() {
             >
               Request Demo
             </button>
+
+            {/* Mobile Menu Toggle */}
+            <button
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              className="md:hidden p-2 text-white hover:text-cyan transition-colors"
+            >
+              {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+            </button>
           </div>
         </div>
+
+        {/* Mobile Dropdown Menu */}
+        <AnimatePresence>
+          {isMobileMenuOpen && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              className="md:hidden bg-black/95 backdrop-blur-xl border-b border-white/10 overflow-hidden"
+            >
+              <div className="flex flex-col px-6 py-4 space-y-4 text-center">
+                <a onClick={() => setIsMobileMenuOpen(false)} href="#services" className="text-white hover:text-cyan py-2 transition-colors font-medium">Services</a>
+                <a onClick={() => setIsMobileMenuOpen(false)} href="#how-it-works" className="text-white hover:text-cyan py-2 transition-colors font-medium">How It Works</a>
+                <a onClick={() => setIsMobileMenuOpen(false)} href="#why" className="text-white hover:text-cyan py-2 transition-colors font-medium">Why Egy Safe</a>
+                <a onClick={() => setIsMobileMenuOpen(false)} href="#pricing" className="text-white hover:text-cyan py-2 transition-colors font-medium">Pricing</a>
+                <a onClick={() => setIsMobileMenuOpen(false)} href="#contact" className="text-white hover:text-cyan py-2 transition-colors font-medium">Contact</a>
+                <button 
+                  onClick={() => {
+                    setIsMobileMenuOpen(false);
+                    setIsConsultationModalOpen(true);
+                  }}
+                  className="bg-cyan hover:bg-cyan/90 text-black px-6 py-3 rounded-md font-semibold transition-all duration-300 w-full"
+                >
+                  Request Demo
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </nav>
 
       {/* Login Modal */}
@@ -375,11 +420,18 @@ export default function App() {
         </div>
       </div>
 
+      {/* Free Scan Section */}
+      <FreeScanSection />
+
       {/* Live Threat Feed Section */}
-      <LiveThreatFeed />
+      <Suspense fallback={<div className="h-96 flex items-center justify-center text-cyan animate-pulse">Loading Threat Feed...</div>}>
+        <LiveThreatFeed />
+      </Suspense>
 
       {/* Egypt Regional Scanner Section */}
-      <EgyptDarkWebScanner />
+      <Suspense fallback={<div className="h-96 flex items-center justify-center text-red animate-pulse">Loading Regional Intelligence...</div>}>
+        <EgyptDarkWebScanner />
+      </Suspense>
 
       {/* Trusted By Section */}
       <div className="border-y border-white/5 bg-black/50 py-10 relative z-10 overflow-hidden">
@@ -1044,7 +1096,9 @@ export default function App() {
       {user && profile?.role === 'Admin' && (
         <section id="admin" className="py-24 relative bg-black border-t border-white/5 text-white">
           <div className="max-w-7xl mx-auto px-6">
-            <AdminPanel />
+            <Suspense fallback={<div className="h-64 flex items-center justify-center text-cyan animate-pulse">Loading Admin Panel...</div>}>
+              <AdminPanel />
+            </Suspense>
           </div>
         </section>
       )}
@@ -1053,7 +1107,9 @@ export default function App() {
       {user && profile?.role === 'Viewer' && (
         <section id="dashboard" className="py-24 relative bg-black border-t border-white/5 text-white">
           <div className="max-w-7xl mx-auto px-6">
-            <ClientDashboard />
+             <Suspense fallback={<div className="h-64 flex items-center justify-center text-cyan animate-pulse">Loading Dashboard...</div>}>
+               <ClientDashboard />
+             </Suspense>
           </div>
         </section>
       )}

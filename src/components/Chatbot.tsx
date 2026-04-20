@@ -4,12 +4,17 @@ import { MessageSquare, X, Send, Bot, User, Loader2, Headphones, ArrowRight } fr
 import { GoogleGenAI } from '@google/genai';
 import Markdown from 'react-markdown';
 
-// Initialize the API safely to prevent global crashes if the API key is missing on Vercel
+// Initialize the API safely to prevent global crashes if the API key is missing
 let ai: any = null;
 try {
-  ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || 'MISSING_API_KEY' });
+  // Use import.meta.env for Vite strictly as requested by the user, fallback to process.env
+  const apiKey = typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_GEMINI_API_KEY 
+    ? import.meta.env.VITE_GEMINI_API_KEY 
+    : (typeof process !== 'undefined' && process.env ? process.env.GEMINI_API_KEY : 'MISSING_API_KEY');
+
+  ai = new GoogleGenAI({ apiKey: apiKey || 'MISSING_API_KEY' });
 } catch (e) {
-  console.warn("GoogleGenAI failed to initialize. Make sure GEMINI_API_KEY is set in Vercel.");
+  console.warn("GoogleGenAI failed to initialize. Make sure VITE_GEMINI_API_KEY is set.");
 }
 
 type Message = {

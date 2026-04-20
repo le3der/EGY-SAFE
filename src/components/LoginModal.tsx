@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, LogIn, Mail, ArrowRight } from 'lucide-react';
+import { X, LogIn, Mail, ArrowRight, Lock, UserPlus, Key } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
 
@@ -10,31 +10,38 @@ interface LoginModalProps {
 }
 
 export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
-  const { signInWithGoogle, sendMagicLink } = useAuth();
+  const { signInWithGoogle, signInWithEmail, signUpWithEmail, resetPassword } = useAuth();
   const [email, setEmail] = useState('');
-  const [isSending, setIsSending] = useState(false);
-  const [isSent, setIsSent] = useState(false);
+  const [password, setPassword] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  const [mode, setMode] = useState<'login' | 'signup' | 'forgot'>('login');
 
-  const handleMagicLink = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email) {
       toast.error('Please enter your email');
       return;
     }
 
-    setIsSending(true);
+    setIsSubmitting(true);
     try {
-      await sendMagicLink(email);
-      setIsSent(true);
-      setTimeout(() => {
+      if (mode === 'forgot') {
+        await resetPassword(email);
+        setMode('login');
+      } else if (mode === 'login') {
+        if (!password) { toast.error('Please enter a password'); return; }
+        await signInWithEmail(email, password);
         onClose();
-        setIsSent(false);
-        setEmail('');
-      }, 3000);
+      } else if (mode === 'signup') {
+        if (!password) { toast.error('Please enter a password'); return; }
+        await signUpWithEmail(email, password);
+        setMode('login');
+      }
     } catch (error) {
       // Error is handled in context
     } finally {
-      setIsSending(false);
+      setIsSubmitting(false);
     }
   };
 
@@ -76,67 +83,102 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
               </div>
               <div className="flex flex-col items-center justify-center text-center">
                 <div className="w-16 h-16 rounded-full bg-cyan/10 border border-cyan/30 flex items-center justify-center text-cyan mb-4">
-                  <LogIn className="w-8 h-8" />
+                  {mode === 'login' ? <LogIn className="w-8 h-8" /> : mode === 'signup' ? <UserPlus className="w-8 h-8" /> : <Key className="w-8 h-8"/>}
                 </div>
-                <h2 className="text-2xl font-bold text-black dark:text-white">Secure Access</h2>
+                <h2 className="text-2xl font-bold text-black dark:text-white">
+                  {mode === 'login' ? 'Secure Access' : mode === 'signup' ? 'Create Account' : 'Reset Password'}
+                </h2>
                 <p className="text-sm text-neutral-600 dark:text-neutral-400 mt-2">
-                  Choose an authentication method to continue to the platform.
+                  {mode === 'login' ? 'Log in to your account to continue.' : mode === 'signup' ? 'Sign up to protect your enterprise.' : 'Enter your email to receive a reset link.'}
                 </p>
               </div>
             </div>
 
             {/* Content */}
             <div className="p-6">
-              {isSent ? (
-                <motion.div 
-                  initial={{ opacity: 0 }} 
-                  animate={{ opacity: 1 }} 
-                  className="py-8 text-center"
-                >
-                  <Mail className="w-12 h-12 text-cyan mx-auto mb-4 opacity-80" />
-                  <h3 className="text-lg font-bold text-black dark:text-white mb-2">Check Your Email</h3>
-                  <p className="text-sm text-neutral-500">We've sent a magic link to <span className="text-black dark:text-white font-medium">{email}</span>. Click it to log in instantly without a password.</p>
-                </motion.div>
-              ) : (
-                <>
-                  <form onSubmit={handleMagicLink} className="space-y-4 mb-6">
-                    <div>
-                      <label className="text-sm font-medium text-black dark:text-white flex items-center gap-2 mb-2">
-                        Passwordless Entry
-                      </label>
-                      <div className="relative">
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                          <Mail className="h-5 w-5 text-neutral-500" />
-                        </div>
-                        <input
-                          type="email"
-                          value={email}
-                          onChange={(e) => setEmail(e.target.value)}
-                          placeholder="admin@egysafe.com"
-                          className="w-full bg-gray-50 dark:bg-[#111] border border-black/10 dark:border-white/10 rounded-lg pl-10 pr-4 py-3 text-black dark:text-white outline-none focus:border-cyan/50 focus:ring-1 focus:ring-cyan/50 transition-all placeholder:text-neutral-500/50"
-                          required
-                        />
-                      </div>
+              <form onSubmit={handleSubmit} className="space-y-4 mb-6">
+                <div>
+                  <label className="text-sm font-medium text-black dark:text-white flex items-center gap-2 mb-2">
+                    Email Address
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <Mail className="h-5 w-5 text-neutral-500" />
                     </div>
-                    
-                    <button
-                      type="submit"
-                      disabled={isSending || !email}
-                      className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-white dark:bg-white/5 border border-black/10 dark:border-white/10 text-black dark:text-white hover:bg-gray-50 dark:hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg font-bold text-sm transition-all focus:outline-none focus:ring-2 focus:ring-cyan"
-                    >
-                      {isSending ? 'Sending Link...' : 'Send Magic Link'}
-                      {!isSending && <ArrowRight className="w-4 h-4" />}
-                    </button>
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="admin@egysafe.com"
+                      className="w-full bg-gray-50 dark:bg-[#111] border border-black/10 dark:border-white/10 rounded-lg pl-10 pr-4 py-3 text-black dark:text-white outline-none focus:border-cyan/50 focus:ring-1 focus:ring-cyan/50 transition-all placeholder:text-neutral-500/50"
+                      required
+                    />
+                  </div>
+                </div>
 
-                    <button
-                      type="button"
-                      onClick={handleMagicLink}
-                      className="w-full text-center text-sm text-neutral-500 hover:text-cyan transition-colors"
-                    >
-                      Forgot Password?
-                    </button>
-                  </form>
+                {mode !== 'forgot' && (
+                  <div>
+                    <div className="flex justify-between items-center mb-2">
+                       <label className="text-sm font-medium text-black dark:text-white flex items-center gap-2">
+                        Password
+                      </label>
+                      {mode === 'login' && (
+                        <button
+                          type="button"
+                          onClick={() => setMode('forgot')}
+                          className="text-xs text-cyan hover:underline transition-colors"
+                        >
+                          Forgot Password?
+                        </button>
+                      )}
+                    </div>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <Lock className="h-5 w-5 text-neutral-500" />
+                      </div>
+                      <input
+                        type="password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder="••••••••"
+                        className="w-full bg-gray-50 dark:bg-[#111] border border-black/10 dark:border-white/10 rounded-lg pl-10 pr-4 py-3 text-black dark:text-white outline-none focus:border-cyan/50 focus:ring-1 focus:ring-cyan/50 transition-all placeholder:text-neutral-500/50"
+                        required
+                      />
+                    </div>
+                  </div>
+                )}
+                
+                <button
+                  type="submit"
+                  disabled={isSubmitting || !email || (mode !== 'forgot' && !password)}
+                  className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-white dark:bg-white/5 border border-black/10 dark:border-white/10 text-black dark:text-white hover:bg-gray-50 dark:hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg font-bold text-sm transition-all focus:outline-none focus:ring-2 focus:ring-cyan"
+                >
+                  {isSubmitting ? 'Processing...' : mode === 'login' ? 'Sign In' : mode === 'signup' ? 'Create Account' : 'Send Reset Link'}
+                  {!isSubmitting && <ArrowRight className="w-4 h-4" />}
+                </button>
 
+                {mode === 'login' && (
+                  <p className="text-center text-sm text-neutral-500 mt-4">
+                    Don't have an account?{' '}
+                    <button type="button" onClick={() => setMode('signup')} className="text-cyan hover:underline">Sign up</button>
+                  </p>
+                )}
+                {mode === 'signup' && (
+                  <p className="text-center text-sm text-neutral-500 mt-4">
+                    Already have an account?{' '}
+                    <button type="button" onClick={() => setMode('login')} className="text-cyan hover:underline">Log in</button>
+                  </p>
+                )}
+                {mode === 'forgot' && (
+                  <p className="text-center text-sm text-neutral-500 mt-4">
+                    Remembered your password?{' '}
+                    <button type="button" onClick={() => setMode('login')} className="text-cyan hover:underline">Log in</button>
+                  </p>
+                )}
+              </form>
+
+              {mode !== 'forgot' && (
+                <>
                   <div className="relative mb-6 text-center">
                     <div className="absolute inset-0 flex items-center">
                       <div className="w-full border-t border-black/10 dark:border-white/10"></div>

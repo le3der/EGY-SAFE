@@ -115,6 +115,34 @@ export default function ClientDashboard() {
     }
   };
 
+  if (loading) {
+    return (
+      <div className="flex flex-col gap-8 animate-pulse">
+        <div className="flex justify-between items-end mb-4">
+          <div>
+            <div className="h-10 w-64 bg-white/10 rounded-md mb-3"></div>
+            <div className="h-5 w-96 bg-white/5 rounded-md"></div>
+          </div>
+          <div className="h-10 w-36 bg-white/10 rounded-lg"></div>
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="h-32 bg-white/5 rounded-xl border border-white/5"></div>
+          <div className="h-32 bg-white/5 rounded-xl border border-white/5"></div>
+          <div className="h-32 bg-white/5 rounded-xl border border-white/5"></div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <div className="h-96 bg-white/5 rounded-xl border border-white/5"></div>
+          <div className="flex flex-col gap-4">
+            <div className="h-14 bg-white/5 rounded-xl border border-white/5"></div>
+            <div className="h-48 bg-white/5 rounded-xl border border-white/5"></div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-8">
       {/* Header Actions */}

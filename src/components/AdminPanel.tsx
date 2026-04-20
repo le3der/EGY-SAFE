@@ -82,10 +82,15 @@ export default function AdminPanel() {
       const pkData = await pkRes.json();
       
       // 2. Client-side encryption using Web Crypto API
-      const pemHeader = "-----BEGIN PUBLIC KEY-----";
-      const pemFooter = "-----END PUBLIC KEY-----";
-      const pemContents = pkData.publicKey.substring(pemHeader.length, pkData.publicKey.length - pemFooter.length).replace(/\s/g, '');
-      const binaryDerString = window.atob(pemContents);
+      // Robust PEM to DER conversion
+      const cleanPem = pkData.publicKey
+        .replace(/-----BEGIN PUBLIC KEY-----/g, '')
+        .replace(/-----END PUBLIC KEY-----/g, '')
+        .replace(/-----BEGIN RSA PUBLIC KEY-----/g, '')
+        .replace(/-----END RSA PUBLIC KEY-----/g, '')
+        .replace(/\s/g, '');
+        
+      const binaryDerString = window.atob(cleanPem);
       const binaryDer = new ArrayBuffer(binaryDerString.length);
       const uint8Array = new Uint8Array(binaryDer);
       for (let i = 0; i < binaryDerString.length; i++) {

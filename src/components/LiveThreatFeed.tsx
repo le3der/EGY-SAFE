@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ShieldAlert, AlertTriangle, AlertCircle, Activity, Globe, Lock, Loader2, Key, Database, FileWarning, Mail, Bomb, Bug, Download, Play, Pause, RotateCcw, Hook, DoorOpen, Skull, Zap, Fish, MailWarning } from 'lucide-react';
+import { ShieldAlert, AlertTriangle, AlertCircle, Activity, Globe, Lock, Loader2, Key, Database, FileWarning, Mail, Bomb, Bug, Download, Play, Pause, RotateCcw, DoorOpen, Skull, Zap, Fish, MailWarning, Network } from 'lucide-react';
 import { io } from 'socket.io-client';
 import { logUserAction } from '../lib/audit';
 import { useAuth } from '../context/AuthContext';
