@@ -11,7 +11,10 @@ service cloud.firestore {
     function existing() { return resource.data; }
 
     function isBootstrappedAdmin() {
-      return isSignedIn() && request.auth.token.email_verified == true && request.auth.token.email == 'moashrafsy@gmail.com';
+      // It is highly recommended to NOT hardcode emails here. 
+      // If you must bootstrap an admin, you can set it manually via the Firebase Console once, 
+      // or replace the string below temporarily to bootstrap your account:
+      return isSignedIn() && request.auth.token.email_verified == true && request.auth.token.email == 'YOUR_ADMIN_EMAIL@example.com';
     }
 
     function isAdmin() { 

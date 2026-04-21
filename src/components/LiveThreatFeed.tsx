@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ShieldAlert, AlertTriangle, AlertCircle, Activity, Globe, Lock, Loader2, Key, Database, FileWarning, Mail, Bomb, Bug, Download, Play, Pause, RotateCcw, DoorOpen, Skull, Zap, Fish, MailWarning, Network } from 'lucide-react';
+import { ShieldAlert, AlertTriangle, AlertCircle, Activity, Globe, Lock, Loader2, Key, Database, FileWarning, Mail, Bomb, Bug, Download, Play, Pause, RotateCcw, DoorOpen, Skull, Zap, Fish, MailWarning, Network, Search } from 'lucide-react';
 import { io } from 'socket.io-client';
 import { logUserAction } from '../lib/audit';
 import { useAuth } from '../context/AuthContext';
@@ -97,6 +97,7 @@ export default function LiveThreatFeed() {
   const [activeSeverityFilter, setActiveSeverityFilter] = useState<'ALL' | Severity>('ALL');
   const [activeTypeFilter, setActiveTypeFilter] = useState<string>('ALL');
   const [activeStatusFilter, setActiveStatusFilter] = useState<'ALL' | ThreatStatus>('active');
+  const [searchTerm, setSearchTerm] = useState('');
   const [socketStatus, setSocketStatus] = useState<'connected' | 'disconnected' | 'reconnecting'>('disconnected');
 
   const { profile } = useAuth();
@@ -104,10 +105,43 @@ export default function LiveThreatFeed() {
   const observerTarget = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    // Request notification permission if needed
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+  }, []);
+
+  const playThreatAlarm = () => {
+    try {
+      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const oscillator = audioCtx.createOscillator();
+      const gainNode = audioCtx.createGain();
+      
+      oscillator.type = 'square';
+      oscillator.frequency.setValueAtTime(800, audioCtx.currentTime);
+      oscillator.frequency.exponentialRampToValueAtTime(1200, audioCtx.currentTime + 0.1);
+      
+      gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
+      gainNode.gain.linearRampToValueAtTime(0.3, audioCtx.currentTime + 0.05);
+      gainNode.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.3);
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+      
+      oscillator.start(audioCtx.currentTime);
+      oscillator.stop(audioCtx.currentTime + 0.4);
+    } catch (e) {
+      console.log('Audio playback failed', e);
+    }
+  };
+
+  useEffect(() => {
     // Connect to WebSocket server running on same origin
     const socket = io({
-      reconnectionAttempts: 10,
+      reconnection: true,
+      reconnectionAttempts: Infinity,
       reconnectionDelay: 2000,
+      reconnectionDelayMax: 10000,
       timeout: 10000
     });
 
@@ -146,8 +180,19 @@ export default function LiveThreatFeed() {
       
       setIsScanning(false);
 
-      // Trigger realtime toast notification
       const isCritical = threat.severity === 'CRITICAL';
+      
+      if (isCritical) {
+        playThreatAlarm();
+        if ('Notification' in window && Notification.permission === 'granted') {
+          new Notification(`CRITICAL THREAT: ${threat.type}`, {
+            body: `Target: ${threat.target}\n${threat.description}`,
+            icon: '/favicon.ico' // Assuming standard favicon
+          });
+        }
+      }
+
+      // Trigger realtime toast notification
       toast.custom(
         (t) => (
           <div className={`${t.visible ? 'animate-enter' : 'animate-leave'} max-w-sm w-full bg-[#050505] shadow-lg rounded-lg pointer-events-auto flex ring-1 ${isCritical ? 'ring-red-500/50' : 'ring-cyan/30'}`}>
@@ -183,6 +228,25 @@ export default function LiveThreatFeed() {
     return () => {
       socket.disconnect();
     };
+  }, [isPaused]);
+
+  // Pause feed automatically when not in view
+  useEffect(() => {
+    const section = document.getElementById('live-threat-feed');
+    if (!section) return;
+
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (!entry.isIntersecting && !isPaused) {
+          setIsPaused(true);
+        } else if (entry.isIntersecting && isPaused) {
+          setIsPaused(false);
+        }
+      });
+    }, { threshold: 0.1 });
+
+    observer.observe(section);
+    return () => observer.disconnect();
   }, [isPaused]);
 
   const loadMoreThreats = useCallback(() => {
@@ -297,7 +361,11 @@ export default function LiveThreatFeed() {
     const matchesSeverity = activeSeverityFilter === 'ALL' || threat.severity === activeSeverityFilter;
     const matchesType = activeTypeFilter === 'ALL' || threat.type === activeTypeFilter;
     const matchesStatus = activeStatusFilter === 'ALL' || threat.status === activeStatusFilter;
-    return matchesSeverity && matchesType && matchesStatus;
+    const matchesSearch = searchTerm === '' || 
+      threat.target.toLowerCase().includes(searchTerm.toLowerCase()) || 
+      threat.description.toLowerCase().includes(searchTerm.toLowerCase()) || 
+      threat.type.toLowerCase().includes(searchTerm.toLowerCase());
+    return matchesSeverity && matchesType && matchesStatus && matchesSearch;
   });
 
   const exportToCSV = () => {
@@ -424,20 +492,20 @@ export default function LiveThreatFeed() {
             
             {/* Window Controls & Filters */}
             <div className="bg-[#111] border-b border-white/5">
-              <div className="px-4 py-3 flex flex-col xl:flex-row xl:items-center justify-between gap-4">
-                <div className="flex items-center justify-between xl:justify-start gap-4 w-full xl:w-auto">
+              <div className="px-4 py-3 flex flex-wrap lg:flex-nowrap items-center justify-between gap-4">
+                <div className="flex items-center gap-4 w-full lg:w-auto overflow-hidden">
                   <div className="flex items-center gap-2 shrink-0">
                     <div className="w-3 h-3 rounded-full bg-red/80"></div>
                     <div className="w-3 h-3 rounded-full bg-yellow-500/80"></div>
                     <div className="w-3 h-3 rounded-full bg-green-500/80"></div>
                   </div>
-                  <div className="text-xs font-mono text-neutral-500 hidden sm:flex items-center gap-2">
-                    <Lock className="w-3 h-3" />
-                    <span>terminal.egysafe.darkweb_monitor</span>
+                  <div className="text-xs font-mono text-neutral-500 hidden sm:flex items-center gap-2 truncate">
+                    <Lock className="w-3 h-3 shrink-0" />
+                    <span className="truncate">terminal.egysafe.darkweb_monitor</span>
                   </div>
 
                   {/* Terminal Controls */}
-                  <div className="flex items-center gap-1 border-l border-white/10 pl-4 ml-auto xl:ml-2">
+                  <div className="flex items-center gap-1 border-l border-white/10 pl-4 ml-auto">
                     <button 
                       onClick={() => {
                         if (!isAnalystOrAdmin) {
@@ -446,7 +514,7 @@ export default function LiveThreatFeed() {
                         }
                         setIsPaused(!isPaused);
                       }}
-                      className={`p-1.5 rounded-md transition-colors focus:outline-none ${isPaused ? 'bg-yellow-500/20 text-yellow-500' : 'hover:bg-white/10 text-neutral-400 hover:text-white'}`}
+                      className={`p-1.5 rounded-md transition-colors focus:outline-none shrink-0 ${isPaused ? 'bg-yellow-500/20 text-yellow-500' : 'hover:bg-white/10 text-neutral-400 hover:text-white'}`}
                       title={isPaused ? "Resume Live Feed" : "Pause Live Feed"}
                     >
                       {isPaused ? <Play className="w-4 h-4" /> : <Pause className="w-4 h-4" />}
@@ -461,7 +529,7 @@ export default function LiveThreatFeed() {
                         toast.success("Threat feed reset.");
                         logUserAction('Data Modification', 'Reset Global Threat Feed');
                       }}
-                      className="p-1.5 rounded-md text-neutral-400 hover:bg-white/10 hover:text-white transition-colors focus:outline-none"
+                      className="p-1.5 rounded-md text-neutral-400 hover:bg-white/10 hover:text-white transition-colors focus:outline-none shrink-0"
                       title="Reset Feed"
                     >
                       <RotateCcw className="w-4 h-4" />
@@ -469,10 +537,20 @@ export default function LiveThreatFeed() {
                   </div>
                 </div>
                 
-                {/* Filters */}
-                <div className="flex flex-col lg:flex-row items-start lg:items-center gap-3 lg:gap-4 w-full xl:w-auto overflow-hidden">
+                {/* Filters & Search */}
+                <div className="flex flex-col sm:flex-row flex-wrap lg:flex-nowrap items-center justify-between gap-3 lg:gap-4 w-full">
+                  <div className="relative w-full sm:w-auto flex-grow sm:flex-grow-0 sm:min-w-[200px]">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-500" />
+                    <input
+                      type="text"
+                      placeholder="Search threats..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="w-full bg-[#050505] border border-white/10 rounded-full py-1.5 pl-9 pr-4 text-xs text-white focus:outline-none focus:border-cyan focus:ring-1 focus:ring-cyan transition-colors"
+                    />
+                  </div>
                   {/* Type Filter */}
-                  <div className="flex items-center gap-2 overflow-x-auto no-scrollbar w-full xl:w-auto pb-1 xl:pb-0 mask-edges-right pr-8">
+                  <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1 lg:pb-0 w-full sm:w-auto">
                     <button
                       onClick={() => setActiveTypeFilter('ALL')}
                       className={`flex items-center gap-1.5 whitespace-nowrap px-3 py-1.5 rounded-full text-[10px] font-bold tracking-widest uppercase transition-all duration-300 border shrink-0 ${

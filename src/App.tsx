@@ -5,7 +5,18 @@ import DataFlowBackground from './components/DataFlowBackground';
 import LazyImage from './components/LazyImage';
 import { Toaster, toast } from 'react-hot-toast';
 import { useAuth } from './context/AuthContext';
+import { useLanguage } from './context/LanguageContext';
 import { trackEvent } from './lib/analytics';
+import { ContactForm, NewsletterForm } from './components/Forms';
+
+const whyEgySafeItems = [
+  { title: "Comprehensive Coverage", body: "Our monitoring engine covers dark web markets, hacking forums, source code repositories, paste sites, private clouds, Telegram, Discord, Tor sites, and more — leaving no blind spots." },
+  { title: "Hybrid AI + Human Intelligence", body: "We combine artificial intelligence with human analyst expertise to eliminate false positives and ensure every alert is verified, classified, and actionable." },
+  { title: "Always Up-to-Date", body: "Our team and tools run around the clock — meaning every single day is a new opportunity to protect your business from an emerging breach." },
+  { title: "Post-Alert Mitigation Plans", body: "Unlike other vendors, we don't just notify you. We provide a detailed action plan and a unified dashboard to track and manage every mitigation activity." },
+  { title: "Continuous Monitoring", body: "Our deep presence across dark, deep, and surface web communities means we track not just known breaches, but threat actors who may be targeting you next." },
+  { title: "API Integration", body: "Integrate Egy Safe's intelligence directly into your existing security stack via our REST API — compatible with SIEMs, SOAR platforms, and custom workflows." }
+];
 
 // Lazy loaded heavy components
 const Chatbot = React.lazy(() => import('./components/Chatbot'));
@@ -22,24 +33,69 @@ const AdminPanel = React.lazy(() => import('./components/AdminPanel'));
 const ClientDashboard = React.lazy(() => import('./components/ClientDashboard'));
 
 // Fallback component for lazy loading boundaries
-const SuspenseFallback = () => (
-  <div className="flex justify-center items-center p-12 min-h-[50vh]">
-    <Loader2 className="w-8 h-8 animate-spin text-cyan" />
-  </div>
-);
+const SkeletonLoader = ({ type = 'panel' }: { type?: 'modal' | 'panel' | 'widget' }) => {
+  if (type === 'modal') {
+    return (
+      <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm">
+        <div className="bg-[#050505] shadow-2xl shadow-cyan/5 border border-white/10 rounded-2xl w-[90%] max-w-lg p-8 animate-pulse flex flex-col items-center">
+          <div className="w-16 h-16 rounded-full bg-white/10 mb-6"></div>
+          <div className="h-6 bg-white/10 rounded w-1/2 mb-4"></div>
+          <div className="h-4 bg-white/5 rounded w-3/4 mb-10"></div>
+          <div className="w-full space-y-3 mt-4">
+            <div className="h-12 bg-white/5 rounded w-full"></div>
+            <div className="h-12 bg-white/5 rounded w-full"></div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (type === 'widget') {
+    return (
+      <div className="fixed bottom-24 right-6 w-14 h-14 bg-white/10 rounded-2xl border border-white/20 animate-pulse z-40 flex items-center justify-center shadow-[0_0_15px_rgba(0,194,255,0.1)]">
+        <div className="w-6 h-6 bg-white/20 rounded-md"></div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="w-full flex flex-col gap-4 p-6 sm:p-8 cyber-glass-card rounded-2xl animate-pulse min-h-[300px] border border-white/5">
+      <div className="flex gap-4 items-center border-b border-white/5 pb-4 mb-4">
+        <div className="w-12 h-12 rounded-full bg-white/10 shrink-0"></div>
+        <div className="flex flex-col gap-2 flex-1">
+          <div className="h-5 bg-white/10 rounded w-1/3"></div>
+          <div className="h-3 bg-white/5 rounded w-1/4"></div>
+        </div>
+      </div>
+      <div className="space-y-3 flex-1 mb-8">
+        <div className="h-4 bg-white/5 rounded w-full"></div>
+        <div className="h-4 bg-white/5 rounded w-5/6"></div>
+        <div className="h-4 bg-white/5 rounded w-4/6"></div>
+      </div>
+      <div className="h-32 bg-white/5 rounded-xl w-full border border-white/5 mt-auto"></div>
+    </div>
+  );
+};
 
 const StatCounter = ({ end, prefix = '', suffix = '', duration = 2000, delay = 0 }: { end: number, prefix?: string, suffix?: string, duration?: number, delay?: number }) => {
   const [count, setCount] = useState(0);
   const [hasAnimated, setHasAnimated] = useState(false);
   const [isCounting, setIsCounting] = useState(false);
   const ref = useRef<HTMLSpanElement>(null);
+  const observerRef = useRef<IntersectionObserver | null>(null);
 
   useEffect(() => {
-    const observer = new IntersectionObserver(([entry]) => {
+    if (hasAnimated) return;
+
+    observerRef.current = new IntersectionObserver(([entry]) => {
       if (entry.isIntersecting && !hasAnimated) {
         setHasAnimated(true);
         setIsCounting(true);
         
+        if (observerRef.current) {
+          observerRef.current.disconnect();
+        }
+
         setTimeout(() => {
           const startTime = performance.now();
           
@@ -61,8 +117,10 @@ const StatCounter = ({ end, prefix = '', suffix = '', duration = 2000, delay = 0
       }
     }, { threshold: 0.5 });
 
-    if (ref.current) observer.observe(ref.current);
-    return () => observer.disconnect();
+    if (ref.current) observerRef.current.observe(ref.current);
+    return () => {
+      if (observerRef.current) observerRef.current.disconnect();
+    };
   }, [end, duration, delay, hasAnimated]);
 
   return (
@@ -77,6 +135,7 @@ const StatCounter = ({ end, prefix = '', suffix = '', duration = 2000, delay = 0
 
 export default function App() {
   const { user, profile, loading: authLoading, signInWithGoogle, logout } = useAuth();
+  const { lang, toggleLang, t, dir } = useLanguage();
   const [openAccordion, setOpenAccordion] = useState<number | null>(0);
   const [isScrolled, setIsScrolled] = useState(false);
   const [showScrollTop, setShowScrollTop] = useState(false);
@@ -86,7 +145,35 @@ export default function App() {
   // Services filtering & carousel state
   const [activeServiceIndex, setActiveServiceIndex] = useState(0);
   const [activeSection, setActiveSection] = useState<string>('hero');
-  
+  const [touchStart, setTouchStart] = useState<number | null>(null);
+  const [touchEnd, setTouchEnd] = useState<number | null>(null);
+
+  // Minimum distance required for a swipe
+  const minSwipeDistance = 50;
+
+  const onTouchStart = (e: React.TouchEvent) => {
+    setTouchEnd(null);
+    setTouchStart(e.targetTouches[0].clientX);
+  };
+
+  const onTouchMove = (e: React.TouchEvent) => {
+    setTouchEnd(e.targetTouches[0].clientX);
+  };
+
+  const onTouchEnd = () => {
+    if (!touchStart || !touchEnd) return;
+    const distance = touchStart - touchEnd;
+    const isLeftSwipe = distance > minSwipeDistance;
+    const isRightSwipe = distance < -minSwipeDistance;
+
+    if (isLeftSwipe) {
+      setActiveServiceIndex(prev => (prev + 1) % 3);
+    }
+    if (isRightSwipe) {
+      setActiveServiceIndex(prev => (prev - 1 + 3) % 3);
+    }
+  };
+
   // Theme state
   const [theme, setTheme] = useState<'light' | 'dark'>('dark');
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
@@ -95,10 +182,13 @@ export default function App() {
   const [contactEmailError, setContactEmailError] = useState('');
   const [newsletterEmail, setNewsletterEmail] = useState('');
 
+  const activeSectionRef = useRef(activeSection);
+  activeSectionRef.current = activeSection;
+
   // Track active section for Chatbot
   useEffect(() => {
     const observer = new IntersectionObserver((entries) => {
-      let currentSection = activeSection;
+      let currentSection = activeSectionRef.current;
       let maxRatio = 0;
       entries.forEach(entry => {
         if (entry.isIntersecting && entry.intersectionRatio > maxRatio) {
@@ -107,7 +197,7 @@ export default function App() {
           if (sectionId) currentSection = sectionId;
         }
       });
-      if (maxRatio > 0 && currentSection !== activeSection) {
+      if (maxRatio > 0 && currentSection !== activeSectionRef.current) {
         setActiveSection(currentSection);
       }
     }, { threshold: [0.1, 0.5, 0.9] });
@@ -116,17 +206,13 @@ export default function App() {
     sections.forEach(section => observer.observe(section));
 
     return () => observer.disconnect();
-  }, [activeSection]);
+  }, []);
 
   // Initialize theme to be always dark
   useEffect(() => {
     const root = window.document.documentElement;
     root.classList.add('dark');
   }, []);
-
-  const toggleTheme = () => {
-    // Disabled
-  };
 
   useEffect(() => {
     // Scroll listener for sticky nav
@@ -180,44 +266,43 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const whyEgySafeItems = [
-    { title: "Comprehensive Coverage", body: "Our monitoring engine covers dark web markets, hacking forums, source code repositories, paste sites, private clouds, Telegram, Discord, Tor sites, and more — leaving no blind spots." },
-    { title: "Hybrid AI + Human Intelligence", body: "We combine artificial intelligence with human analyst expertise to eliminate false positives and ensure every alert is verified, classified, and actionable." },
-    { title: "Always Up-to-Date", body: "Our team and tools run around the clock — meaning every single day is a new opportunity to protect your business from an emerging breach." },
-    { title: "Post-Alert Mitigation Plans", body: "Unlike other vendors, we don't just notify you. We provide a detailed action plan and a unified dashboard to track and manage every mitigation activity." },
-    { title: "Continuous Monitoring", body: "Our deep presence across dark, deep, and surface web communities means we track not just known breaches, but threat actors who may be targeting you next." },
-    { title: "API Integration", body: "Integrate Egy Safe's intelligence directly into your existing security stack via our REST API — compatible with SIEMs, SOAR platforms, and custom workflows." }
-  ];
-
   return (
     <div className="min-h-screen bg-black text-neutral-400 font-sans text-base leading-[1.7] selection:bg-cyan selection:text-black overflow-x-hidden relative">
       <Toaster position="bottom-right" toastOptions={{ style: { background: '#111', color: '#fff', border: '1px solid rgba(0,194,255,0.3)' } }} />
-      <MfaVerificationModal />
+      <Suspense fallback={<SkeletonLoader type="modal" />}>
+        <MfaVerificationModal />
+      </Suspense>
       {/* Global Noise Overlay */}
       <div className="fixed inset-0 bg-noise z-50 mix-blend-overlay pointer-events-none"></div>
 
       {/* Navigation */}
       <nav className={`fixed top-0 w-full z-50 transition-all duration-300 ${isScrolled ? 'bg-black/80 backdrop-blur-xl border-b border-white/5 py-4' : 'bg-transparent py-6'}`}>
         <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="relative flex items-center justify-center w-10 h-10">
-              <Shield className="w-8 h-8 text-cyan" />
-              <Eye className="w-4 h-4 text-black absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
+          <div className="flex items-center gap-3 cursor-pointer group" onClick={scrollToTop}>
+            <div className="relative flex items-center justify-center w-10 h-10 group-hover:scale-110 transition-transform duration-300">
+              <ScanSearch className="w-9 h-9 text-cyan absolute opacity-90" strokeWidth={1.5} />
+              <div className="w-2 h-2 rounded-full bg-cyan absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 animate-pulse" />
             </div>
-            <span className="text-xl font-bold tracking-tight text-white">
+            <span className="text-2xl font-bold tracking-tight text-white group-hover:text-cyan transition-colors duration-300">
               EgySafe
             </span>
           </div>
           
           <div className="hidden md:flex items-center gap-8 text-sm font-medium text-white/80">
-            <a href="#services" className="hover:text-cyan focus:outline-none focus:text-cyan transition-colors">Services</a>
-            <a href="#how-it-works" className="hover:text-cyan focus:outline-none focus:text-cyan transition-colors">How It Works</a>
-            <a href="#why" className="hover:text-cyan focus:outline-none focus:text-cyan transition-colors">Why Egy Safe</a>
-            <a href="#pricing" className="hover:text-cyan focus:outline-none focus:text-cyan transition-colors">Pricing</a>
-            <a href="#contact" className="hover:text-cyan focus:outline-none focus:text-cyan transition-colors">Contact</a>
+            <a href="#services" className="hover:text-cyan focus:outline-none focus:text-cyan transition-colors">{t('الخدمات', 'Services')}</a>
+            <a href="#how-it-works" className="hover:text-cyan focus:outline-none focus:text-cyan transition-colors">{t('كيف نعمل', 'How It Works')}</a>
+            <a href="#why" className="hover:text-cyan focus:outline-none focus:text-cyan transition-colors">{t('لماذا Egy Safe', 'Why Egy Safe')}</a>
+            <a href="#pricing" className="hover:text-cyan focus:outline-none focus:text-cyan transition-colors">{t('الأسعار', 'Pricing')}</a>
+            <a href="#contact" className="hover:text-cyan focus:outline-none focus:text-cyan transition-colors">{t('اتصل بنا', 'Contact')}</a>
           </div>
 
           <div className="flex items-center gap-4">
+            <button
+              onClick={toggleLang}
+              className="text-xs font-bold text-neutral-400 hover:text-cyan focus:outline-none px-2 py-1 uppercase tracking-widest transition-colors"
+            >
+              {lang === 'en' ? 'عربي' : 'EN'}
+            </button>
             
             {!authLoading && user ? (
               <div className="flex items-center gap-2">
@@ -304,14 +389,14 @@ export default function App() {
       </nav>
 
       {/* Login Modal */}
-      <Suspense fallback={null}>
+      <Suspense fallback={<SkeletonLoader type="modal" />}>
         <LoginModal isOpen={isLoginModalOpen} onClose={() => setIsLoginModalOpen(false)} />
       </Suspense>
 
       {/* Hero Section */}
       <section className="relative pt-32 pb-20 lg:pt-48 lg:pb-32 min-h-[90vh] flex flex-col justify-center overflow-hidden bg-black text-white">
         {/* Animated Cyber Background */}
-        <Suspense fallback={<SuspenseFallback />}>
+        <Suspense fallback={<SkeletonLoader type="panel" />}>
           <DataFlowBackground />
         </Suspense>
         
@@ -329,12 +414,12 @@ export default function App() {
             <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/5 border border-white/10 backdrop-blur-md text-white text-xs font-bold tracking-widest uppercase mb-8 shadow-[0_0_30px_rgba(255,255,255,0.05)]">
               <span className="w-2 h-2 rounded-full bg-red animate-ping absolute opacity-75"></span>
               <span className="w-2 h-2 rounded-full bg-red relative"></span>
-              Live Monitoring — 24/7
+              {t('مراقبة حية — طوال أيام الأسبوع', 'Live Monitoring — 24/7')}
             </div>
             
             <h1 className="text-[clamp(3rem,8vw,6rem)] font-extrabold leading-[1.05] tracking-tighter mb-6">
-              <span className="text-gradient-shimmer">Your Data is Already Out There.</span><br />
-              <span className="text-cyan-shimmer">Do You Know What's Exposed?</span>
+              <span className="text-gradient-shimmer">{t('بياناتك مسربة بالفعل.', 'Your Data is Already Out There.')}</span><br />
+              <span className="text-cyan-shimmer">{t('هل تعلم ما هو مكشوف؟', 'Do You Know What\'s Exposed?')}</span>
             </h1>
             
             <motion.p 
@@ -343,7 +428,7 @@ export default function App() {
               transition={{ delay: 0.3, duration: 1 }}
               className="text-lg md:text-xl text-neutral-400 mb-10 leading-relaxed max-w-3xl font-medium"
             >
-              Egy Safe monitors the surface, deep & dark web 24/7 — alerting you the moment your company's assets, credentials, or data appear in the wrong hands.
+              {t('تقوم منصة إيجي سيف بمراقبة الويب السطحي والعميق والمظلم على مدار الساعة — لتنبيهك لحظة ظهور أصول شركتك أو بيانات مسؤوليها أو بياناتها في الأيدي الخطأ.', 'Egy Safe monitors the surface, deep & dark web 24/7 — alerting you the moment your company\'s assets, credentials, or data appear in the wrong hands.')}
             </motion.p>
             
             <motion.div 
@@ -359,7 +444,7 @@ export default function App() {
                 }}
                 className="bg-cyan hover:bg-white text-black px-8 py-4 rounded-md font-bold text-base transition-all duration-300 hover:scale-105 active:scale-95 glow-cyan w-full sm:w-auto focus:outline-none focus:ring-2 focus:ring-cyan focus:ring-offset-2 focus:ring-offset-black"
               >
-                Start Free Scan
+                {t('ابدأ الفحص المجاني', 'Start Free Scan')}
               </button>
               <button 
                 onClick={() => {
@@ -368,7 +453,7 @@ export default function App() {
                 }}
                 className="bg-transparent border border-white/20 text-white hover:bg-white/10 px-8 py-4 rounded-md font-bold text-base transition-all duration-300 w-full sm:w-auto focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-black"
               >
-                See How It Works
+                {t('انظر كيف يعمل', 'See How It Works')}
               </button>
             </motion.div>
           </motion.div>
@@ -434,17 +519,17 @@ export default function App() {
       </div>
 
       {/* Free Scan Section */}
-      <Suspense fallback={<SuspenseFallback />}>
+      <Suspense fallback={<SkeletonLoader type="panel" />}>
         <FreeScanSection />
       </Suspense>
 
       {/* Live Threat Feed Section */}
-      <Suspense fallback={<div className="h-96 flex items-center justify-center text-cyan animate-pulse">Loading Threat Feed...</div>}>
+      <Suspense fallback={<SkeletonLoader type="panel" />}>
         <LiveThreatFeed />
       </Suspense>
 
       {/* Egypt Regional Scanner Section */}
-      <Suspense fallback={<div className="h-96 flex items-center justify-center text-red animate-pulse">Loading Regional Intelligence...</div>}>
+      <Suspense fallback={<SkeletonLoader type="panel" />}>
         <EgyptDarkWebScanner />
       </Suspense>
 
@@ -517,7 +602,20 @@ export default function App() {
             </div>
           </div>
 
-          <div className="max-w-2xl mx-auto relative z-10 w-full min-h-[450px]">
+          <div 
+            className="max-w-2xl mx-auto relative z-10 w-full min-h-[450px] outline-none rounded-2xl touch-pan-y"
+            tabIndex={0}
+            onTouchStart={onTouchStart}
+            onTouchMove={onTouchMove}
+            onTouchEnd={onTouchEnd}
+            onKeyDown={(e) => {
+              if (e.key === 'ArrowLeft') {
+                setActiveServiceIndex(prev => (prev - 1 + 3) % 3);
+              } else if (e.key === 'ArrowRight') {
+                setActiveServiceIndex(prev => (prev + 1) % 3);
+              }
+            }}
+          >
             <AnimatePresence mode="wait">
             {/* Card 1 */}
             {activeServiceIndex === 0 && (
@@ -714,7 +812,7 @@ export default function App() {
             <p className="text-neutral-400 text-lg">From stolen device to real-time alert — here's our end-to-end process.</p>
           </div>
 
-          <Suspense fallback={<SuspenseFallback />}>
+          <Suspense fallback={<SkeletonLoader type="panel" />}>
             <InteractiveTimeline />
           </Suspense>
         </div>
@@ -1036,8 +1134,6 @@ export default function App() {
 
       {/* CTA Section */}
       <section className="py-32 relative overflow-hidden bg-black fade-in-section text-white border-b border-white/5">
-        {/* Animated Data Flow Background */}
-        <DataFlowBackground />
         
         {/* Subtle static gradient fallback underneath */}
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-4xl h-64 bg-cyan/5 blur-[120px] pointer-events-none z-0"></div>
@@ -1049,12 +1145,12 @@ export default function App() {
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-cyan"></span>
             </span>
-            Live Scan Available
+            {t('مسح حي متوفر', 'Live Scan Available')}
           </div>
 
-          <h2 className="text-[clamp(1.5rem,3.5vw,2.5rem)] font-bold mb-6 text-white">Is Your Data Already on the Dark Web?</h2>
+          <h2 className="text-[clamp(1.5rem,3.5vw,2.5rem)] font-bold mb-6 text-white">{t('هل بياناتك موجوة على الويب المظلم؟', 'Is Your Data Already on the Dark Web?')}</h2>
           <p className="text-xl text-neutral-400 mb-12 max-w-2xl mx-auto">
-            Run a free exposure scan and find out in minutes. No commitment required.
+            {t('قم بإجراء فحص مجاني واكتشف خلال دقائق. لا يلزمك أي التزام.', 'Run a free exposure scan and find out in minutes. No commitment required.')}
           </p>
 
           {/* Form Area */}
@@ -1078,13 +1174,13 @@ export default function App() {
               <div className="cyber-glass-card-glow text-cyan/20"></div>
               <input 
                 type="text" 
-                placeholder="Enter your company domain (e.g. yourcompany.com)" 
+                placeholder={t('أدخل نطاق شركتك (مثل company.com)', 'Enter your company domain (e.g. company.com)')}
                 className="flex-1 bg-transparent text-white px-6 py-3 outline-none placeholder:text-neutral-500 w-full rounded-full relative z-10"
                 required
                 aria-label="Enter your company domain"
               />
               <button type="submit" className="bg-red hover:bg-red/90 text-white px-8 py-3 rounded-full font-bold transition-all duration-300 hover:scale-105 active:scale-95 glow-red whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-red focus:ring-offset-2 focus:ring-offset-black w-full sm:w-auto mt-2 sm:mt-0 relative z-10">
-                Scan Now
+                {t('افحص الآن', 'Scan Now')}
               </button>
             </form>
           </div>
@@ -1113,7 +1209,7 @@ export default function App() {
       {user && profile?.role === 'Admin' && (
         <section id="admin" className="py-24 relative bg-black border-t border-white/5 text-white">
           <div className="max-w-7xl mx-auto px-6">
-            <Suspense fallback={<div className="h-64 flex items-center justify-center text-cyan animate-pulse">Loading Admin Panel...</div>}>
+            <Suspense fallback={<SkeletonLoader type="panel" />}>
               <AdminPanel />
             </Suspense>
           </div>
@@ -1124,7 +1220,7 @@ export default function App() {
       {user && profile?.role === 'Viewer' && (
         <section id="dashboard" className="py-24 relative bg-black border-t border-white/5 text-white">
           <div className="max-w-7xl mx-auto px-6">
-             <Suspense fallback={<div className="h-64 flex items-center justify-center text-cyan animate-pulse">Loading Dashboard...</div>}>
+             <Suspense fallback={<SkeletonLoader type="panel" />}>
                <ClientDashboard />
              </Suspense>
           </div>
@@ -1202,93 +1298,10 @@ export default function App() {
                 </div>
               </div>
 
-              <form className="space-y-3" onSubmit={(e) => { 
-                e.preventDefault(); 
-                const form = e.target as HTMLFormElement;
-                
-                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-                if (!emailRegex.test(contactEmail)) {
-                  setContactEmailError('Please enter a valid email address.');
-                  return;
-                }
-                
-                setContactEmailError('');
-
-                const toastId = toast.loading('Sending your message...');
-                setTimeout(() => {
-                  toast.success('Message sent! We will contact you soon.', { id: toastId });
-                  form.reset();
-                  setContactEmail('');
-                }, 1000);
-              }}>
-                <div>
-                  <input 
-                    type="email" 
-                    value={contactEmail}
-                    onChange={(e) => {
-                      setContactEmail(e.target.value);
-                      if (contactEmailError) setContactEmailError('');
-                    }}
-                    placeholder="Your Email Address" 
-                    className={`w-full bg-[#0A0A0A] border rounded-lg px-4 py-2.5 text-sm text-white outline-none placeholder:text-neutral-500 transition-all cyber-glass-card hover:bg-white/5 ${
-                      contactEmailError 
-                      ? 'border-red-500/50 focus:border-red-500 focus:ring-1 focus:ring-red-500' 
-                      : 'border-white/5 focus:border-cyan/50 focus:ring-1 focus:ring-cyan/50'
-                    }`}
-                    required
-                    aria-label="Your Email Address"
-                  />
-                  {contactEmailError && (
-                    <p className="text-red-500 text-xs mt-1.5 ml-1">{contactEmailError}</p>
-                  )}
-                </div>
-                <textarea 
-                  placeholder="How can we help you?" 
-                  rows={3}
-                  aria-label="How can we help you?"
-                  className="w-full bg-[#0A0A0A] border border-white/5 rounded-lg px-4 py-2.5 text-sm text-white outline-none placeholder:text-neutral-500 focus:border-cyan/50 focus:ring-1 focus:ring-cyan/50 transition-all resize-none cyber-glass-card hover:bg-white/5"
-                  required
-                ></textarea>
-                <button type="submit" className="w-full px-6 py-2.5 bg-cyan text-black hover:bg-cyan/90 rounded-lg font-bold text-sm transition-all duration-300 hover:scale-105 active:scale-95 glow-cyan focus:outline-none focus:ring-2 focus:ring-cyan focus:ring-offset-2 focus:ring-offset-black">
-                  Send Message
-                </button>
-              </form>
+              <ContactForm />
 
               {/* Newsletter Signup */}
-              <div className="pt-8 mt-8 border-t border-white/5">
-                <h4 className="font-bold mb-3 text-white text-sm">Stay Updated</h4>
-                <p className="text-neutral-500 text-xs mb-4">
-                  Get the latest threat intel and security best practices delivered to your inbox.
-                </p>
-                <form 
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    if (!newsletterEmail) return;
-                    const toastId = toast.loading('Subscribing...');
-                    setTimeout(() => {
-                      toast.success('Successfully subscribed to newsletter!', { id: toastId });
-                      setNewsletterEmail('');
-                    }, 1000);
-                  }}
-                  className="flex gap-2"
-                >
-                  <input 
-                    type="email" 
-                    value={newsletterEmail}
-                    onChange={(e) => setNewsletterEmail(e.target.value)}
-                    placeholder="Enter your email" 
-                    className="flex-grow bg-[#0A0A0A] border border-white/5 rounded-lg px-4 py-2 text-xs text-white outline-none placeholder:text-neutral-500 focus:border-cyan/50 focus:ring-1 focus:ring-cyan/50 transition-all cyber-glass-card hover:bg-white/5"
-                    required
-                    aria-label="Newsletter email address"
-                  />
-                  <button 
-                    type="submit"
-                    className="px-4 py-2 bg-white/5 border border-white/10 hover:border-cyan/50 hover:bg-cyan/10 hover:text-cyan text-white rounded-lg font-bold text-xs transition-all duration-300 active:scale-95 flex items-center justify-center shrink-0"
-                  >
-                    Subscribe
-                  </button>
-                </form>
-              </div>
+              <NewsletterForm />
             </div>
           </div>
 
@@ -1314,8 +1327,10 @@ export default function App() {
         <ArrowUp className="w-5 h-5 text-cyan" />
       </button>
       
-      <Suspense fallback={null}>
+      <Suspense fallback={<SkeletonLoader type="widget" />}>
         <Chatbot activeSection={activeSection} />
+      </Suspense>
+      <Suspense fallback={<SkeletonLoader type="modal" />}>
         <SecurityAssessmentModal 
           isOpen={isAssessmentModalOpen} 
           onClose={() => setIsAssessmentModalOpen(false)} 

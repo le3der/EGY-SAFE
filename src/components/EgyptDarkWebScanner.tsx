@@ -282,23 +282,23 @@ export default function EgyptDarkWebScanner() {
             
             {/* Window Controls & Filters */}
             <div className="bg-[#111] border-b border-white/5">
-              <div className="px-4 py-3 flex flex-col xl:flex-row xl:items-center justify-between gap-4">
-                <div className="flex items-center justify-between xl:justify-start gap-4">
+              <div className="px-4 py-3 flex flex-wrap lg:flex-nowrap items-center justify-between gap-4">
+                <div className="flex items-center gap-4 w-full lg:w-auto overflow-hidden">
                   <div className="flex items-center gap-2 shrink-0">
                     <div className="w-3 h-3 rounded-full bg-red/80"></div>
                     <div className="w-3 h-3 rounded-full bg-yellow-500/80"></div>
                     <div className="w-3 h-3 rounded-full bg-green-500/80"></div>
                   </div>
-                  <div className="text-xs font-mono text-neutral-500 flex items-center gap-2">
-                    <Lock className="w-3 h-3" />
-                    <span className="hidden sm:inline">eg_intel_stream.sh</span>
+                  <div className="text-xs font-mono text-neutral-500 flex items-center gap-2 truncate">
+                    <Lock className="w-3 h-3 shrink-0" />
+                    <span className="truncate hidden sm:inline">eg_intel_stream.sh</span>
                   </div>
                 </div>
                 
                 {/* Filters */}
-                <div className="flex flex-col lg:flex-row items-start lg:items-center gap-3 lg:gap-4 w-full xl:w-auto overflow-hidden">
+                <div className="flex flex-wrap lg:flex-nowrap items-center gap-3 lg:gap-4 w-full lg:w-auto mt-2 lg:mt-0">
                   {/* Type Filter */}
-                  <div className="flex items-center gap-2 overflow-x-auto no-scrollbar w-full xl:w-auto pb-1 xl:pb-0 mask-edges-right pr-8">
+                  <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1 lg:pb-0 w-full lg:w-auto">
                     <button
                       onClick={() => setActiveTypeFilter('ALL')}
                       className={`flex items-center gap-1.5 whitespace-nowrap px-3 py-1.5 rounded-full text-[10px] font-bold tracking-widest uppercase transition-all duration-300 border shrink-0 ${

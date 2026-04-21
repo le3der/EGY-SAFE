@@ -42,57 +42,72 @@ export default function RemediationTasks() {
         Drag and drop tasks to prioritize your incident response and remediation queue.
       </p>
 
-      <div className="bg-white dark:bg-[#0A0A0A] border border-black/10 dark:border-white/10 rounded-2xl p-6 shadow-xl">
-        <DragDropContext onDragEnd={handleDragEnd}>
-          <Droppable droppableId="tasks-list">
-            {(provided) => (
-              <ul 
-                {...provided.droppableProps} 
-                ref={provided.innerRef}
-                className="space-y-3"
-              >
-                {tasks.map((task, index) => (
-                  <Draggable key={task.id} draggableId={task.id} index={index}>
-                    {(provided, snapshot) => (
-                      <li
-                        ref={provided.innerRef}
-                        {...provided.draggableProps}
-                        className={`flex items-center gap-4 p-4 rounded-xl border transition-colors ${
-                          snapshot.isDragging 
-                            ? 'bg-black/5 dark:bg-white/5 border-cyan shadow-[0_0_15px_rgba(0,194,255,0.2)] z-50' 
-                            : 'bg-white dark:bg-[#111] border-black/10 dark:border-white/10 hover:border-cyan/50 hover:bg-black/5 dark:hover:bg-white/5'
-                        }`}
-                        style={provided.draggableProps.style}
-                      >
-                        <div 
-                          {...provided.dragHandleProps}
-                          className="cursor-grab active:cursor-grabbing text-neutral-400 hover:text-cyan transition-colors"
+      <div className="bg-white dark:bg-[#0A0A0A] border border-black/10 dark:border-white/10 rounded-2xl p-6 shadow-xl w-full min-h-[200px]">
+        {tasks.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-full text-neutral-500 gap-3 py-10">
+            <ShieldAlert className="w-10 h-10 opacity-30" />
+            <h3 className="text-lg font-bold text-black dark:text-white">All Clear</h3>
+            <p className="text-sm">There are currently no pending vulnerabilities or risks to mitigate.</p>
+          </div>
+        ) : (
+          <DragDropContext onDragEnd={handleDragEnd}>
+            <Droppable droppableId="tasks-list">
+              {(provided) => (
+                <ul 
+                  {...provided.droppableProps} 
+                  ref={provided.innerRef}
+                  className="space-y-3"
+                >
+                  {tasks.map((task, index) => (
+                    <Draggable key={task.id} draggableId={task.id} index={index}>
+                      {(provided, snapshot) => (
+                        <li
+                          ref={provided.innerRef}
+                          {...provided.draggableProps}
+                          className={`flex items-center gap-4 p-4 rounded-xl border transition-colors ${
+                            snapshot.isDragging 
+                              ? 'bg-black/5 dark:bg-white/5 border-cyan shadow-[0_0_15px_rgba(0,194,255,0.2)] z-50' 
+                              : 'bg-white dark:bg-[#111] border-black/10 dark:border-white/10 hover:border-cyan/50 hover:bg-black/5 dark:hover:bg-white/5'
+                          }`}
+                          style={provided.draggableProps.style}
                         >
-                          <GripVertical className="w-5 h-5" />
-                        </div>
-                        
-                        <div className="flex-grow">
-                          <h4 className="text-sm font-bold text-black dark:text-white">{task.title}</h4>
-                        </div>
+                          <div 
+                            {...provided.dragHandleProps}
+                            className="cursor-grab active:cursor-grabbing text-neutral-400 hover:text-cyan transition-colors"
+                          >
+                            <GripVertical className="w-5 h-5" />
+                          </div>
+                          
+                          <div className="flex-grow">
+                            <h4 className="text-sm font-bold text-black dark:text-white">{task.title}</h4>
+                          </div>
 
-                        <div className="flex items-center gap-3">
-                          <span className={`px-2 py-1 rounded text-[10px] font-bold tracking-widest uppercase border ${
-                            task.priority === 'High' ? 'bg-red/10 text-red border-red/20' :
-                            task.priority === 'Medium' ? 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-500 border-yellow-500/20' :
-                            'bg-cyan/10 text-cyan border-cyan/20'
-                          }`}>
-                            {task.priority}
-                          </span>
-                        </div>
-                      </li>
-                    )}
-                  </Draggable>
-                ))}
-                {provided.placeholder}
-              </ul>
-            )}
-          </Droppable>
-        </DragDropContext>
+                          <div className="flex items-center gap-3">
+                            <span className={`px-2 py-1 rounded text-[10px] font-bold tracking-widest uppercase border ${
+                              task.priority === 'High' ? 'bg-red/10 text-red border-red/20' :
+                              task.priority === 'Medium' ? 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-500 border-yellow-500/20' :
+                              'bg-cyan/10 text-cyan border-cyan/20'
+                            }`}>
+                              {task.priority}
+                            </span>
+                            <button
+                              onClick={() => setTasks(tasks.filter(t => t.id !== task.id))}
+                              className="text-xs text-neutral-400 hover:text-cyan focus:outline-none transition-colors"
+                              aria-label="Mark task done"
+                            >
+                              Done
+                            </button>
+                          </div>
+                        </li>
+                      )}
+                    </Draggable>
+                  ))}
+                  {provided.placeholder}
+                </ul>
+              )}
+            </Droppable>
+          </DragDropContext>
+        )}
       </div>
     </div>
   );

@@ -1,12 +1,74 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Search, Loader2, ShieldAlert, CheckCircle, AlertTriangle, Key, Globe, FileWarning } from 'lucide-react';
+import { Search, Loader2, ShieldAlert, CheckCircle, AlertTriangle, Key, Globe, FileWarning, Download } from 'lucide-react';
+import toast from 'react-hot-toast';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
+
+export interface ScanReport {
+  domain: string;
+  scanDate: string | Date;
+  error?: string;
+  riskLevel: 'HIGH' | 'MEDIUM' | 'LOW';
+  summary: string;
+  engines?: {
+    alienVault?: {
+      connected: boolean;
+      pulses?: number;
+      malwareCount?: number;
+    };
+    darkWebScraper?: {
+      status: string;
+      mentions: number;
+    };
+    shodan?: {
+      connected: boolean;
+      message: string;
+    };
+  };
+}
 
 export default function FreeScanSection() {
   const [target, setTarget] = useState('');
   const [isScanning, setIsScanning] = useState(false);
   const [scanStep, setScanStep] = useState(0);
   const [scanComplete, setScanComplete] = useState(false);
+  const [scanReport, setScanReport] = useState<ScanReport | null>(null);
+  const [lastScanTime, setLastScanTime] = useState(0);
+  const [scanHistory, setScanHistory] = useState<ScanReport[]>([]);
+  const [cooldownRemaining, setCooldownRemaining] = useState(0);
+
+  React.useEffect(() => {
+    // Load history from localStorage
+    try {
+      const stored = localStorage.getItem('egysec_scan_history');
+      if (stored) {
+        setScanHistory(JSON.parse(stored));
+      }
+    } catch(e) {}
+  }, []);
+
+  React.useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (cooldownRemaining > 0) {
+      interval = setInterval(() => {
+        setCooldownRemaining(prev => prev - 1);
+      }, 1000);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [cooldownRemaining]);
+
+  const saveToHistory = (report: ScanReport) => {
+    setScanHistory(prev => {
+      const newHistory = [report, ...prev.filter(r => r.domain !== report.domain)].slice(0, 5); // Keep last 5
+      try {
+        localStorage.setItem('egysec_scan_history', JSON.stringify(newHistory));
+      } catch(e) {}
+      return newHistory;
+    });
+  };
 
   const steps = [
     "Initializing connection...",
@@ -17,28 +79,100 @@ export default function FreeScanSection() {
     "Compiling threat report..."
   ];
 
-  const handleScan = (e: React.FormEvent) => {
+  const handleExportPDF = async () => {
+    if (!scanReport) return;
+    try {
+      toast.loading("Generating PDF...", { id: "pdf-toast" });
+      const element = document.getElementById("scan-result-card");
+      if (!element) throw new Error("Result element not found");
+      
+      const canvas = await html2canvas(element, { scale: 2, backgroundColor: '#0a0a0a' });
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+      
+      pdf.addImage(imgData, 'PNG', 0, 10, pdfWidth, pdfHeight);
+      pdf.save(`EgySafe_Report_${scanReport.domain}.pdf`);
+      toast.success("PDF Downloaded successfully", { id: "pdf-toast" });
+    } catch (e) {
+      console.error(e);
+      toast.error("Failed to generate PDF", { id: "pdf-toast" });
+    }
+  };
+
+  const handleScan = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!target.trim()) return;
-    
+    const domainToScan = target.trim();
+    if (!domainToScan) return;
+
+    // Client-side Rate Limiting (Cooldown: 30 seconds)
+    const now = Date.now();
+    if (now - lastScanTime < 30000) {
+      const remainingSeconds = Math.ceil((30000 - (now - lastScanTime)) / 1000);
+      toast.error(`Please wait ${remainingSeconds}s before scanning again to prevent flooding.`);
+      return;
+    }
+
+    // Domain Validation and Sanitization
+    // A robust regex for common domain matching
+    const domainRegex = /^(?!:\/\/)(?=.{1,255}$)((.{1,63}\.){1,127}(?![0-9]*$)[a-z0-9-]+\.?)$/i;
+    if (!domainRegex.test(domainToScan)) {
+       toast.error("Invalid domain format. Please enter a valid domain (e.g., example.com)");
+       return;
+    }
+
+    setLastScanTime(now);
+    setCooldownRemaining(30);
     setIsScanning(true);
     setScanComplete(false);
     setScanStep(0);
+    setScanReport(null);
 
-    // Simulate scanning process
+    // Simulate scanning steps UI progression (while backend does real lookup)
     let currentStep = 0;
     const interval = setInterval(() => {
       currentStep++;
-      if (currentStep >= steps.length) {
-        clearInterval(interval);
-        setTimeout(() => {
-          setIsScanning(false);
-          setScanComplete(true);
-        }, 500);
-      } else {
+      if (currentStep < steps.length - 1) {
         setScanStep(currentStep);
       }
-    }, 1200);
+    }, 800);
+
+    try {
+      const response = await fetch(`/api/intel/scan?domain=${encodeURIComponent(domainToScan)}`);
+      const report = await response.json();
+      
+      clearInterval(interval);
+      setScanStep(steps.length - 1);
+      
+      if (report.error && response.status === 400) {
+         toast.error(report.error);
+         setIsScanning(false);
+         setScanComplete(false);
+         return;
+      }
+      
+      setScanReport(report);
+      saveToHistory(report);
+      
+      setTimeout(() => {
+        setIsScanning(false);
+        setScanComplete(true);
+      }, 500);
+      
+    } catch (err) {
+      console.error(err);
+      clearInterval(interval);
+      setScanStep(steps.length - 1);
+      setScanReport({ 
+        domain: domainToScan,
+        scanDate: new Date(),
+        riskLevel: 'LOW', 
+        summary: 'Connection failed. Ensure backend services are running.' 
+      });
+      setIsScanning(false);
+      setScanComplete(true);
+    }
   };
 
   return (
@@ -78,13 +212,17 @@ export default function FreeScanSection() {
               </div>
               <button
                 type="submit"
-                disabled={isScanning || !target.trim()}
-                className="bg-cyan hover:bg-white text-black px-8 py-4 rounded-xl font-bold transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap glow-cyan flex items-center justify-center gap-2"
+                disabled={isScanning || !target.trim() || cooldownRemaining > 0}
+                className="bg-cyan hover:bg-white text-black px-8 py-4 rounded-xl font-bold transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap glow-cyan flex items-center justify-center gap-2 min-w-[160px]"
               >
                 {isScanning ? (
                   <>
                     <Loader2 className="w-5 h-5 animate-spin" />
                     Scanning...
+                  </>
+                ) : cooldownRemaining > 0 ? (
+                  <>
+                    Wait {cooldownRemaining}s
                   </>
                 ) : (
                   <>
@@ -94,6 +232,26 @@ export default function FreeScanSection() {
               </button>
             </div>
           </form>
+
+          {!isScanning && !scanComplete && scanHistory.length > 0 && (
+            <div className="max-w-2xl mx-auto mb-8 relative z-10 flex flex-wrap justify-center gap-2">
+              <span className="text-xs text-neutral-500 mr-2 mt-1">Recent Scans:</span>
+              {scanHistory.map((report, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => {
+                    setTarget(report.domain);
+                    setScanReport(report);
+                    setScanComplete(true);
+                  }}
+                  className="bg-white/5 border border-white/10 hover:border-cyan/50 hover:text-cyan text-neutral-400 px-3 py-1 rounded-full text-xs transition-colors flex items-center gap-1.5 focus:outline-none"
+                >
+                  <Search className="w-3 h-3" />
+                  {report.domain}
+                </button>
+              ))}
+            </div>
+          )}
 
           <AnimatePresence mode="wait">
             {isScanning && (
@@ -135,48 +293,59 @@ export default function FreeScanSection() {
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
                 className="max-w-3xl mx-auto"
+                id="scan-result-card"
               >
-                <div className="bg-red/5 border border-red/20 rounded-xl p-6 mb-6">
+                <div className={`bg-${scanReport?.riskLevel === 'HIGH' ? 'red' : 'green-500'}/5 border border-${scanReport?.riskLevel === 'HIGH' ? 'red' : 'green-500'}/20 rounded-xl p-6 mb-6`}>
                   <div className="flex items-start gap-4">
-                    <ShieldAlert className="w-8 h-8 text-red flex-shrink-0 mt-1" />
+                    {scanReport?.riskLevel === 'HIGH' ? (
+                      <ShieldAlert className="w-8 h-8 text-red flex-shrink-0 mt-1" />
+                    ) : (
+                      <CheckCircle className="w-8 h-8 text-green-500 flex-shrink-0 mt-1" />
+                    )}
                     <div>
-                      <h3 className="text-xl font-bold text-white mb-2">Exposure Detected for {target}</h3>
+                      <h3 className="text-xl font-bold text-white mb-2">Exposure Scan for {target}</h3>
                       <p className="text-neutral-400 text-sm mb-4">
-                        We found records matching your domain in recent dark web databases. This is a partial preview. A full authenticated scan is required for complete details.
+                        {scanReport?.summary || "We found records matching your domain in recent dark web databases. This is a partial preview."}
                       </p>
                       
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-6">
                         <div className="bg-black/50 border border-white/5 rounded-lg p-4">
-                          <div className="flex items-center gap-2 text-red font-mono mb-2">
-                            <Key className="w-4 h-4" /> 
-                            <span className="text-xl font-bold">14</span>
+                          <div className={`flex items-center gap-2 text-${scanReport?.riskLevel === 'HIGH' ? 'red' : 'cyan'} font-mono mb-2`}>
+                            {scanReport?.engines?.alienVault?.connected ? <CheckCircle className="w-4 h-4" /> : <AlertTriangle className="w-4 h-4" />}
+                            <span className="text-sm font-bold uppercase">{scanReport?.engines?.alienVault?.connected ? 'OTX Online' : 'OTX Offline'}</span>
                           </div>
-                          <div className="text-xs text-neutral-500 uppercase tracking-wider font-bold">Leaked Credentials</div>
+                          <div className="text-xs text-neutral-500 uppercase tracking-wider font-bold">Alien Vault Node</div>
                         </div>
                         <div className="bg-black/50 border border-white/5 rounded-lg p-4">
-                          <div className="flex items-center gap-2 text-orange-500 font-mono mb-2">
-                            <FileWarning className="w-4 h-4" /> 
-                            <span className="text-xl font-bold">2</span>
-                          </div>
-                          <div className="text-xs text-neutral-500 uppercase tracking-wider font-bold">Data Breaches</div>
-                        </div>
-                        <div className="bg-black/50 border border-white/5 rounded-lg p-4">
-                          <div className="flex items-center gap-2 text-yellow-500 font-mono mb-2">
+                          <div className={`flex items-center gap-2 text-${scanReport?.engines?.alienVault?.malwareCount ? 'orange-500' : 'green-500'} font-mono mb-2`}>
                             <AlertTriangle className="w-4 h-4" /> 
-                            <span className="text-xl font-bold">1</span>
+                            <span className="text-xl font-bold">{scanReport?.engines?.alienVault?.malwareCount || 0}</span>
                           </div>
-                          <div className="text-xs text-neutral-500 uppercase tracking-wider font-bold">Open Vulnerability</div>
+                          <div className="text-xs text-neutral-500 uppercase tracking-wider font-bold">Malware Indicators</div>
+                        </div>
+                        <div className="bg-black/50 border border-white/5 rounded-lg p-4">
+                          <div className={`flex items-center gap-2 text-${scanReport?.engines?.alienVault?.pulses ? 'red' : 'green-500'} font-mono mb-2`}>
+                            <Globe className="w-4 h-4" /> 
+                            <span className="text-xl font-bold">{scanReport?.engines?.alienVault?.pulses || 0}</span>
+                          </div>
+                          <div className="text-xs text-neutral-500 uppercase tracking-wider font-bold">Threat Pulses</div>
                         </div>
                       </div>
                     </div>
                   </div>
                 </div>
 
-                <div className="text-center">
+                <div className="text-center mt-6 flex flex-col sm:flex-row items-center justify-center gap-4">
                   <button onClick={() => window.dispatchEvent(new CustomEvent('open-consultation'))} className="bg-white hover:bg-neutral-200 text-black px-6 py-3 rounded-lg font-bold transition-colors inline-block focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-black">
                     Request Comprehensive Report
                   </button>
-                  <p className="text-xs text-neutral-500 mt-4">
+                  <button onClick={handleExportPDF} className="bg-neutral-800 hover:bg-neutral-700 text-white px-6 py-3 rounded-lg font-bold transition-colors inline-flex items-center gap-2 focus:outline-none focus:ring-2 focus:ring-neutral-700 focus:ring-offset-2 focus:ring-offset-black">
+                    <Download className="w-4 h-4" />
+                    Export PDF
+                  </button>
+                </div>
+                <div className="text-center mt-4">
+                  <p className="text-xs text-neutral-500">
                     This is a passive reconnaissance scan. No aggressive probing was performed.
                   </p>
                 </div>

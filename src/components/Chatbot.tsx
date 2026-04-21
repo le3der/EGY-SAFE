@@ -1,26 +1,15 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { MessageSquare, X, Send, Bot, User, Loader2, Headphones, ArrowRight } from 'lucide-react';
-import { GoogleGenAI } from '@google/genai';
 import Markdown from 'react-markdown';
-
-// Initialize the API safely to prevent global crashes if the API key is missing
-let ai: any = null;
-try {
-  // Use import.meta.env for Vite strictly as requested by the user, fallback to process.env
-  const apiKey = typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_GEMINI_API_KEY 
-    ? import.meta.env.VITE_GEMINI_API_KEY 
-    : (typeof process !== 'undefined' && process.env ? process.env.GEMINI_API_KEY : 'MISSING_API_KEY');
-
-  ai = new GoogleGenAI({ apiKey: apiKey || 'MISSING_API_KEY' });
-} catch (e) {
-  console.warn("GoogleGenAI failed to initialize. Make sure VITE_GEMINI_API_KEY is set.");
-}
+import { fetchWithCsrf } from '../lib/csrf';
 
 type Message = {
   id: string;
   role: 'user' | 'assistant' | 'system';
   content: string;
+  isError?: boolean;
+  originalQuery?: string;
 };
 
 interface ChatbotProps {
@@ -43,41 +32,6 @@ export default function Chatbot({ activeSection = 'hero' }: ChatbotProps) {
   const [isStreaming, setIsStreaming] = useState(false); // Tracks active token streaming
   const [hasPromptedContext, setHasPromptedContext] = useState<Record<string, boolean>>({});
   const messagesEndRef = useRef<HTMLDivElement>(null);
-
-  // Store the chat session ref
-  const chatRef = useRef<any>(null);
-
-  // Initialize chat session on mount
-  useEffect(() => {
-    if (!ai) return;
-    try {
-      chatRef.current = ai.chats.create({
-        model: "gemini-3-flash-preview",
-        config: {
-          systemInstruction: `You are an expert cybersecurity AI assistant for Egy Safe, an Egyptian enterprise threat intelligence and attack surface management startup. You specialize in dark web monitoring, penetration testing, and red teaming. You provide professional, accurate, and concise answers about cybersecurity threats and how Egy Safe's services can mitigate them. The user is currently viewing the '${activeSection}' section of the website. Tailor your responses to refer to the context of the '${activeSection}' section if relevant. Use the Google Search tool to find the most recent information about cybersecurity threats.`,
-          temperature: 0.5,
-          tools: [{ googleSearch: {} }]
-        }
-      });
-    } catch (e) {
-      console.error("Failed to initialize chat:", e);
-    }
-  }, []);
-
-  // Update system instructions inside the chat ref when section changes
-  useEffect(() => {
-    if (chatRef.current && !isLiveAgent && ai) {
-       chatRef.current = ai.chats.create({
-        model: "gemini-3-flash-preview",
-        history: chatRef.current.history || [], // Keep message history!
-        config: {
-          systemInstruction: `You are an expert cybersecurity AI assistant for Egy Safe, an Egyptian enterprise threat intelligence and attack surface management startup. You specialize in dark web monitoring, penetration testing, and red teaming. You provide professional, accurate, and concise answers about cybersecurity threats. The user is currently viewing the '${activeSection}' section of the website. If the user asks a general question (like "tell me more"), assume they mean the '${activeSection}' section. Proactively offer tailored information or ask questions related to this section if appropriate. Use the Google Search tool to find the most recent information about cybersecurity threats.`,
-          temperature: 0.5,
-          tools: [{ googleSearch: {} }]
-        }
-      });
-    }
-  }, [activeSection, isLiveAgent]);
 
   // Proactive contextual pop-ups based on section
   useEffect(() => {
@@ -148,52 +102,57 @@ export default function Chatbot({ activeSection = 'hero' }: ChatbotProps) {
         role: 'assistant', 
         content: "Hi there! I'm Sarah from the Egy Safe Support team. How can I help you today?" 
       }]);
-
-      // Re-initialize Chat AI to act as Sarah
-      if (ai) {
-        chatRef.current = ai.chats.create({
-          model: "gemini-3-flash-preview",
-          config: {
-            systemInstruction: "You are Sarah, a human support agent at Egy Safe, an Egyptian enterprise threat intelligence startup. You are warm, professional, and very helpful. The user specifically requested to speak to a human, so absolutely DO NOT mention that you are an AI. You are a real human working in the support center. Provide concise, helpful support.",
-            temperature: 0.7,
-          }
-        });
-      }
     }, 2500);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!input.trim() || isLoading) return;
-
-    const userMsg = input.trim();
-    setInput('');
-    
+  const sendMessage = async (userMsg: string) => {
     // Add user message to UI
     const newUserMsg: Message = { id: Date.now().toString(), role: 'user', content: userMsg };
+    
+    // We send current history BEFORE updating state, so we don't accidentally send the user message twice
+    const currentHistory = [...messages]; 
+    
     setMessages(prev => [...prev, newUserMsg]);
     setIsLoading(true);
 
     try {
-      if (!chatRef.current) {
-        throw new Error("Chat not initialized");
+      const response = await fetchWithCsrf('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: userMsg,
+          history: currentHistory,
+          activeSection,
+          isLiveAgent
+        })
+      });
+
+      if (!response.ok || !response.body) {
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder('utf-8');
       
-      const responseStream = await chatRef.current.sendMessageStream({ message: userMsg });
       const assistantMsgId = (Date.now() + 1).toString();
       let startedStreaming = false;
 
-      for await (const chunk of responseStream) {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunkText = decoder.decode(value, { stream: true });
+        
         if (!startedStreaming) {
           startedStreaming = true;
           setIsLoading(false); // Hide the "thinking" 3-dot indicator instantly
           setIsStreaming(true); // Show the blinking typing cursor
-          setMessages(prev => [...prev, { id: assistantMsgId, role: 'assistant', content: chunk.text || '' }]);
+          setMessages(prev => [...prev, { id: assistantMsgId, role: 'assistant', content: chunkText || '' }]);
         } else {
           // Use a functional update to smoothly append chunks as they arrive
           setMessages(prev => prev.map(msg => 
             msg.id === assistantMsgId 
-              ? { ...msg, content: msg.content + (chunk.text || '') }
+              ? { ...msg, content: msg.content + (chunkText || '') }
               : msg
           ));
         }
@@ -203,14 +162,14 @@ export default function Chatbot({ activeSection = 'hero' }: ChatbotProps) {
 
       if (!startedStreaming) {
          setIsLoading(false);
-         setMessages(prev => [...prev, { id: assistantMsgId, role: 'assistant', content: "I'm having trouble getting a response. Can you ask again?" }]);
+         setMessages(prev => [...prev, { id: assistantMsgId, role: 'assistant', content: "I'm having trouble getting a response. Can you ask again?", isError: true, originalQuery: userMsg }]);
       }
     } catch (error: any) {
       console.error("Chat error:", error);
       setIsLoading(false);
       setIsStreaming(false);
       
-      const errorMessage = error?.message || "Unknown error occurred";
+      const friendlyError = `⚠️ **Connection Error**: Unable to reach the secure chat server.`;
       
       setMessages(prev => {
         const lastMsg = prev[prev.length - 1];
@@ -219,7 +178,7 @@ export default function Chatbot({ activeSection = 'hero' }: ChatbotProps) {
         if (lastMsg && lastMsg.role === 'assistant' && lastMsg.id !== newUserMsg.id) {
           return prev.map(msg => 
             msg.id === lastMsg.id 
-              ? { ...msg, content: msg.content + `\n\n*(Connection interrupted: ${errorMessage})*` }
+              ? { ...msg, content: msg.content + `\n\n*(Connection interrupted: ${error?.message})*`, isError: true, originalQuery: userMsg }
               : msg
           );
         } else {
@@ -227,11 +186,27 @@ export default function Chatbot({ activeSection = 'hero' }: ChatbotProps) {
           return [...prev, { 
             id: Date.now().toString(), 
             role: 'assistant', 
-            content: `⚠️ **Connection Error**: I'm unable to reach the server right now. Please try again.` 
+            content: friendlyError,
+            isError: true,
+            originalQuery: userMsg
           }];
         }
       });
     }
+  };
+
+  const handleRetry = (query: string, messageIdToRemove: string) => {
+    setMessages(prev => prev.filter(m => m.id !== messageIdToRemove));
+    sendMessage(query);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!input.trim() || isLoading) return;
+
+    const userMsg = input.trim();
+    setInput('');
+    await sendMessage(userMsg);
   };
 
   return (
@@ -306,15 +281,37 @@ export default function Chatbot({ activeSection = 'hero' }: ChatbotProps) {
                       <div className={`p-3 rounded-2xl text-sm leading-relaxed ${
                         msg.role === 'user' 
                           ? 'bg-cyan text-black rounded-tr-sm' 
-                          : 'bg-[#111] text-neutral-300 border border-white/5 rounded-tl-sm'
+                          : msg.isError 
+                            ? 'bg-red-500/10 text-red-100 border border-red-500/30 rounded-tl-sm'
+                            : 'bg-[#111] text-neutral-300 border border-white/5 rounded-tl-sm'
                       }`}>
                         {msg.role === 'user' ? (
                           msg.content
                         ) : (
-                          <div className="markdown-body">
+                          <div className={`markdown-body ${msg.isError ? 'text-red-200' : ''}`}>
                             <Markdown>
                               {msg.content + (isStreaming && msg.id === messages[messages.length - 1].id ? ' ▍' : '')}
                             </Markdown>
+                            
+                            {msg.isError && (
+                              <div className="mt-4 flex items-center gap-2 border-t border-red-500/20 pt-3">
+                                {msg.originalQuery && (
+                                  <button 
+                                    onClick={() => handleRetry(msg.originalQuery!, msg.id)}
+                                    className="text-xs px-3 py-1.5 bg-red-500/20 hover:bg-red-500/30 text-white rounded border border-red-500/30 transition-colors"
+                                  >
+                                    Try Again
+                                  </button>
+                                )}
+                                <button 
+                                  onClick={connectToLiveAgent}
+                                  className="text-xs px-3 py-1.5 bg-white/5 hover:bg-white/10 text-white rounded border border-white/10 transition-colors flex flex-row items-center gap-1"
+                                >
+                                  <Headphones className="w-3 h-3" />
+                                  Contact Support
+                                </button>
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>

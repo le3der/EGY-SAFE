@@ -3,6 +3,8 @@ import { motion, AnimatePresence } from 'motion/react';
 import { X, Building2, User, Mail, Phone, MessageSquare, ArrowRight, CheckCircle2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { trackEvent } from '../lib/analytics';
+import { db } from '../lib/firebase';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 
 interface ConsultationModalProps {
   isOpen: boolean;
@@ -13,14 +15,25 @@ export default function ConsultationModal({ isOpen, onClose }: ConsultationModal
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
     
     const toastId = toast.loading('Submitting consultation request...');
     
-    // Simulate API call
-    setTimeout(() => {
+    const form = e.target as HTMLFormElement;
+    const formData = {
+      fullName: (form.elements.namedItem('fullName') as HTMLInputElement).value,
+      company: (form.elements.namedItem('company') as HTMLInputElement).value,
+      email: (form.elements.namedItem('email') as HTMLInputElement).value,
+      phone: (form.elements.namedItem('phone') as HTMLInputElement).value,
+      message: (form.elements.namedItem('message') as HTMLTextAreaElement).value,
+      createdAt: serverTimestamp(),
+      status: 'new'
+    };
+
+    try {
+      await addDoc(collection(db, 'consultations'), formData);
       setIsSubmitting(false);
       setIsSuccess(true);
       toast.success('Request received successfully!', { id: toastId });
@@ -35,7 +48,11 @@ export default function ConsultationModal({ isOpen, onClose }: ConsultationModal
         setIsSuccess(false);
         onClose();
       }, 3000);
-    }, 1500);
+    } catch (err) {
+      setIsSubmitting(false);
+      console.error(err);
+      toast.error('Failed to submit. Please try again.', { id: toastId });
+    }
   };
 
   return (
@@ -109,6 +126,7 @@ export default function ConsultationModal({ isOpen, onClose }: ConsultationModal
                       </label>
                       <input 
                         type="text" 
+                        name="fullName"
                         required
                         className="w-full bg-gray-50 dark:bg-[#111] border border-black/10 dark:border-white/10 rounded-lg px-4 py-2.5 text-black dark:text-white outline-none focus:border-cyan/50 focus:ring-1 focus:ring-cyan/50 transition-all placeholder:text-neutral-500"
                         placeholder="John Doe"
@@ -120,6 +138,7 @@ export default function ConsultationModal({ isOpen, onClose }: ConsultationModal
                       </label>
                       <input 
                         type="text" 
+                        name="company"
                         required
                         className="w-full bg-gray-50 dark:bg-[#111] border border-black/10 dark:border-white/10 rounded-lg px-4 py-2.5 text-black dark:text-white outline-none focus:border-cyan/50 focus:ring-1 focus:ring-cyan/50 transition-all placeholder:text-neutral-500"
                         placeholder="Acme Corp"
@@ -134,6 +153,7 @@ export default function ConsultationModal({ isOpen, onClose }: ConsultationModal
                       </label>
                       <input 
                         type="email" 
+                        name="email"
                         required
                         className="w-full bg-gray-50 dark:bg-[#111] border border-black/10 dark:border-white/10 rounded-lg px-4 py-2.5 text-black dark:text-white outline-none focus:border-cyan/50 focus:ring-1 focus:ring-cyan/50 transition-all placeholder:text-neutral-500"
                         placeholder="john@example.com"
@@ -145,6 +165,7 @@ export default function ConsultationModal({ isOpen, onClose }: ConsultationModal
                       </label>
                       <input 
                         type="tel" 
+                        name="phone"
                         className="w-full bg-gray-50 dark:bg-[#111] border border-black/10 dark:border-white/10 rounded-lg px-4 py-2.5 text-black dark:text-white outline-none focus:border-cyan/50 focus:ring-1 focus:ring-cyan/50 transition-all placeholder:text-neutral-500"
                         placeholder="+1 (555) 000-0000"
                       />
@@ -156,6 +177,7 @@ export default function ConsultationModal({ isOpen, onClose }: ConsultationModal
                       <MessageSquare className="w-4 h-4 text-neutral-500" /> Primary Security Concern
                     </label>
                     <textarea 
+                      name="message"
                       required
                       rows={4}
                       className="w-full bg-gray-50 dark:bg-[#111] border border-black/10 dark:border-white/10 rounded-lg px-4 py-2.5 text-black dark:text-white outline-none focus:border-cyan/50 focus:ring-1 focus:ring-cyan/50 transition-all placeholder:text-neutral-500 resize-none"

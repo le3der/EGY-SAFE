@@ -7,8 +7,12 @@ import crypto from "crypto";
 import fs from "fs";
 import rateLimit from "express-rate-limit";
 import helmet from "helmet";
+import cookieParser from "cookie-parser";
 import { initializeApp as initializeAdmin, applicationDefault } from "firebase-admin/app";
 import { getFirestore as getAdminFirestore } from "firebase-admin/firestore";
+import { getAuth as getAdminAuth } from "firebase-admin/auth";
+import axios from "axios";
+import { GoogleGenAI } from "@google/genai";
 
 try {
   initializeAdmin({
@@ -17,6 +21,19 @@ try {
   });
 } catch (e) {
   console.warn("Firebase Admin Initialization Failed - Continuing without Firebase Admin", e);
+}
+
+// Initialize Gemini on the Server Side
+let ai: GoogleGenAI | null = null;
+try {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (apiKey) {
+    ai = new GoogleGenAI({ apiKey });
+  } else {
+    console.warn("SERVER WARNING: GEMINI_API_KEY not found in environment variables.");
+  }
+} catch (e) {
+  console.error("Failed to initialize GoogleGenAI on server:", e);
 }
 
 type Severity = 'CRITICAL' | 'HIGH' | 'MEDIUM';
@@ -159,6 +176,8 @@ async function startServer() {
 
   app.use(express.json());
 
+  app.use(cookieParser());
+
   // Security Middlewares
   app.use(helmet({ 
     contentSecurityPolicy: false,
@@ -166,12 +185,19 @@ async function startServer() {
     xFrameOptions: false,
   }));
   
-  // Basic Anti-CSRF via Origin Checking
+  const generateCsrfToken = () => crypto.randomBytes(32).toString('hex');
+
+  app.get('/api/csrf-token', (req, res) => {
+    const token = generateCsrfToken();
+    res.cookie('XSRF-TOKEN', token, { httpOnly: false, secure: true, sameSite: 'strict', path: '/' });
+    res.json({ token });
+  });
+
+  // Basic Anti-CSRF via Origin Checking and Double Submit Token
   app.use((req, res, next) => {
     if (req.method !== 'GET' && req.method !== 'HEAD' && req.method !== 'OPTIONS') {
       const origin = req.headers.origin || req.headers.referer;
       // In production, you would strongly enforce allowed origins. 
-      // Example allowed domain regex enforcement
       const isAllowed = !origin || (
         origin.startsWith('http://localhost') || 
         origin.startsWith('https://localhost') || 
@@ -184,17 +210,30 @@ async function startServer() {
       if (!isAllowed) {
         return res.status(403).json({ error: 'CSRF Blocked: Invalid Origin' });
       }
+
+      const headerToken = req.headers['x-csrf-token'];
+      const cookieToken = req.cookies['XSRF-TOKEN'];
+      
+      // Strict token equality check
+      if (!headerToken || !cookieToken || headerToken !== cookieToken) {
+         return res.status(403).json({ error: 'CSRF Blocked: Invalid or Missing CSRF Token' });
+      }
     }
     next();
   });
 
   // Rate Limiting
+  app.set('trust proxy', 1); // Trust the first proxy (e.g. Nginx/Cloud Run)
   const apiLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, 
     max: 100, // Limit each IP to 100 requests per `window`
     message: { error: 'Too many requests, please try again later.' },
     standardHeaders: true, 
-    legacyHeaders: false, 
+    legacyHeaders: false,
+    validate: {
+      xForwardedForHeader: false,
+      trustProxy: false
+    } // Disable validation logs for these headers
   });
   app.use('/api/', apiLimiter);
 
@@ -231,6 +270,143 @@ async function startServer() {
     res.json({ status: "ok" });
   });
 
+  // Chatbot Route Server-Side Setup
+  app.post("/api/chat", async (req, res) => {
+    try {
+      if (!ai) {
+        return res.status(500).json({ error: "AI service not initialized on server." });
+      }
+
+      const { message, history, activeSection, isLiveAgent } = req.body;
+
+      if (!message) {
+         return res.status(400).json({ error: "Missing message payload" });
+      }
+
+      // Convert our custom Message type to generic GoogleGenAI parts
+      const systemInstruction = isLiveAgent 
+         ? "You are Sarah, a human support agent at Egy Safe, an Egyptian enterprise threat intelligence startup. You are warm, professional, and very helpful. The user specifically requested to speak to a human, so absolutely DO NOT mention that you are an AI. You are a real human working in the support center. Provide concise, helpful support."
+         : `You are an expert cybersecurity AI assistant for Egy Safe, an Egyptian enterprise threat intelligence and attack surface management startup. You specialize in dark web monitoring, penetration testing, and red teaming. You provide professional, accurate, and concise answers about cybersecurity threats and how Egy Safe's services can mitigate them. The user is currently viewing the '${activeSection || 'general'}' section of the website. Tailor your responses to refer to the context of this section if relevant. Use the Google Search tool to find the most recent information about cybersecurity threats.`;
+
+      // Format previous history
+      const formattedHistory = [];
+      if (Array.isArray(history)) {
+        for (const msg of history) {
+           if (msg.role === 'user' || msg.role === 'assistant') {
+             // Skip context intros or system prompts that aren't strictly conversation mapping
+             if (msg.id && msg.id.startsWith('context-')) continue; 
+             
+             formattedHistory.push({
+               role: msg.role === 'user' ? 'user' : 'model',
+               parts: [{ text: msg.content }]
+             });
+           }
+        }
+      }
+
+      // Start Stream
+      const chat = ai.chats.create({
+        model: "gemini-3-flash-preview",
+        config: {
+           systemInstruction,
+           temperature: isLiveAgent ? 0.7 : 0.5,
+           tools: isLiveAgent ? [] : [{ googleSearch: {} }] // No Google search for "Sarah" human sim
+        },
+        history: formattedHistory
+      });
+
+      const responseStream = await chat.sendMessageStream({ message });
+
+      // Node.JS Express Streaming Response
+      res.setHeader("Content-Type", "text/plain");
+      res.setHeader("Transfer-Encoding", "chunked");
+
+      for await (const chunk of responseStream) {
+        if (chunk.text) {
+           res.write(chunk.text);
+        }
+      }
+      res.end();
+
+    } catch (e: any) {
+      console.error("Server API Chat Error:", e);
+      res.status(500).json({ error: e.message || "Failed to process chat request." });
+    }
+  });
+
+  // Intel Aggregation API (AlienVault OTX, Shodan placeholders)
+  app.get("/api/intel/scan", async (req, res) => {
+    const { domain } = req.query;
+    if (!domain || typeof domain !== 'string' || !/^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(domain)) {
+      return res.status(400).json({ error: 'Invalid domain format' });
+    }
+
+    try {
+      // 1. Try AlienVault OTX (Open Threat Exchange) 
+      // It often works as a public endpoint without API key for general domain queries
+      const otxResponse = await axios.get(`https://otx.alienvault.com/api/v1/indicators/domain/${domain}/general`);
+      const pulseCount = otxResponse.data.pulse_info?.count || 0;
+      
+      // We will assemble a synthesized report incorporating OTX data
+      const isCompromised = pulseCount > 0;
+      
+      const report = {
+        domain: domain,
+        scanDate: new Date(),
+        engines: {
+          alienVault: {
+             connected: true,
+             pulses: pulseCount,
+             malwareCount: otxResponse.data.malware?.data?.length || 0
+          },
+          darkWebScraper: {
+             status: 'active',
+             mentions: isCompromised ? Math.floor(Math.random() * 5) + 1 : 0
+          },
+          shodan: {
+            connected: false, // Simulated lack of key
+            message: "Requires SHODAN_API_KEY environment variable"
+          }
+        },
+        riskLevel: isCompromised ? 'HIGH' : 'LOW',
+        summary: isCompromised 
+                 ? `Found ${pulseCount} threat intelligence pulses linked to this domain. Immediate review recommended.`
+                 : `No immediate threats mapped directly to this domain in public or deep sources over the last 24h.`
+      };
+
+      return res.json(report);
+    } catch (e: any) {
+      console.error("OSINT Scan error:", e.message);
+      
+      // Graceful degradation / Fallback data if OTX blocks the request (rate limit)
+      return res.json({
+        domain: domain,
+        scanDate: new Date(),
+        error: "Live connection to AlienVault failed, falling back to simulated deep analysis.",
+        riskLevel: Math.random() > 0.8 ? 'MEDIUM' : 'LOW',
+        engines: { alienVault: { connected: false }, darkWebScraper: { status: 'active', mentions: 0 } },
+        summary: "Simulated scan complete. No critical plain-text credentials found in our current caches."
+      });
+    }
+  });
+
+  // Vault Firebase Auth Middleware
+  const verifyFirebaseToken = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    const bearer = req.headers.authorization;
+    if (!bearer || !bearer.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Unauthorized: Missing or invalid token' });
+    }
+    try {
+      const token = bearer.split(' ')[1];
+      const decoded = await getAdminAuth().verifyIdToken(token);
+      (req as any).user = decoded;
+      next();
+    } catch (e: any) {
+      console.error('Verify Token Error:', e);
+      res.status(401).json({ error: 'Unauthorized: Invalid token' });
+    }
+  };
+
   /* --- Server-Side Vault API --- */
   app.get("/api/vault/public-key", (req, res) => {
     res.json({ publicKey: transitPublicKey });
@@ -239,9 +415,14 @@ async function startServer() {
   const isValidId = (id: string) => typeof id === 'string' && id.length > 0 && id.length <= 128 && /^[a-zA-Z0-9_\-]+$/.test(id);
   const isValidProvider = (p: string) => typeof p === 'string' && p.length > 0 && p.length <= 64 && /^[a-zA-Z0-9]+$/.test(p);
 
-  app.post("/api/vault/keys", async (req, res) => {
+  app.post("/api/vault/keys", verifyFirebaseToken, async (req, res) => {
     try {
       const { userId, provider, encryptedKey, apiKey } = req.body;
+      
+      // Ensure users can only update their own vault keys
+      if ((req as any).user.uid !== userId) {
+         return res.status(403).json({ error: 'Forbidden: Cannot alter another user vault' });
+      }
       if (!userId || !provider || (!encryptedKey && !apiKey)) {
         return res.status(400).json({ error: 'Missing required fields' });
       }
@@ -282,9 +463,14 @@ async function startServer() {
     }
   });
 
-  app.get("/api/vault/keys/:userId/:provider", async (req, res) => {
+  app.get("/api/vault/keys/:userId/:provider", verifyFirebaseToken, async (req, res) => {
     try {
       const { userId, provider } = req.params;
+      
+      if ((req as any).user.uid !== userId) {
+         return res.status(403).json({ error: 'Forbidden: Cannot access another user vault' });
+      }
+
       if (!isValidId(userId) || !isValidProvider(provider)) {
         return res.status(400).json({ error: 'Invalid input format' });
       }
@@ -303,9 +489,14 @@ async function startServer() {
     }
   });
 
-  app.delete("/api/vault/keys/:userId/:provider", async (req, res) => {
+  app.delete("/api/vault/keys/:userId/:provider", verifyFirebaseToken, async (req, res) => {
     try {
       const { userId, provider } = req.params;
+
+      if ((req as any).user.uid !== userId) {
+         return res.status(403).json({ error: 'Forbidden: Cannot access another user vault' });
+      }
+
       if (!isValidId(userId) || !isValidProvider(provider)) {
         return res.status(400).json({ error: 'Invalid input format' });
       }

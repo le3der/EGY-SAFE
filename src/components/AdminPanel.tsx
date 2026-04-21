@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { collection, getDocs, doc, updateDoc, serverTimestamp, query, orderBy, limit } from 'firebase/firestore';
 import { multiFactor } from 'firebase/auth';
-import { db } from '../lib/firebase';
+import { db, auth } from '../lib/firebase';
 import { useAuth, UserRole } from '../context/AuthContext';
 import { logUserAction } from '../lib/audit';
 import { Shield, Users, UserCog, Check, Smartphone, KeyRound, ShieldAlert, FileText, Download, KeySquare, Trash2, Save } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { fetchWithCsrf } from '../lib/csrf';
 import MfaSetupModal from './MfaSetupModal';
 import RemediationTasks from './RemediationTasks';
 
@@ -63,7 +64,10 @@ export default function AdminPanel() {
   const checkVaultedKey = async (provider: string) => {
     if (!user) return;
     try {
-      const res = await fetch(`/api/vault/keys/${user.uid}/${provider}`);
+      const idToken = await user.getIdToken();
+      const res = await fetch(`/api/vault/keys/${user.uid}/${provider}`, {
+        headers: { 'Authorization': `Bearer ${idToken}` }
+      });
       const data = await res.json();
       if (data.hasKey) {
         if (provider === 'virustotal') setHasVtKey(true);
@@ -77,6 +81,7 @@ export default function AdminPanel() {
     if (!user || !apiKey) return;
     setIsSavingKey(true);
     try {
+      const idToken = await user.getIdToken();
       // 1. Fetch the server's public RSA key
       const pkRes = await fetch('/api/vault/public-key');
       const pkData = await pkRes.json();
@@ -115,9 +120,12 @@ export default function AdminPanel() {
       const encryptedBase64 = window.btoa(String.fromCharCode(...new Uint8Array(encryptedBuffer)));
 
       // 3. Send securely
-      const res = await fetch('/api/vault/keys', {
+      const res = await fetchWithCsrf('/api/vault/keys', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${idToken}`
+        },
         body: JSON.stringify({ userId: user.uid, provider, encryptedKey: encryptedBase64 })
       });
       
@@ -151,8 +159,10 @@ export default function AdminPanel() {
     }
 
     try {
-      const res = await fetch(`/api/vault/keys/${user.uid}/${provider}`, {
-        method: 'DELETE'
+      const idToken = await user.getIdToken();
+      const res = await fetchWithCsrf(`/api/vault/keys/${user.uid}/${provider}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${idToken}` }
       });
       const data = await res.json();
       if (data.success) {
