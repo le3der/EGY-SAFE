@@ -2,6 +2,7 @@ import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, Crosshair, Fingerprint, Code, Server, Shield } from 'lucide-react';
 import { trackEvent } from '../lib/analytics';
+import { useModalAccessibility } from '../hooks/useModalAccessibility';
 
 interface SecurityAssessmentModalProps {
   isOpen: boolean;
@@ -9,6 +10,8 @@ interface SecurityAssessmentModalProps {
 }
 
 export default function SecurityAssessmentModal({ isOpen, onClose }: SecurityAssessmentModalProps) {
+  const modalRef = useModalAccessibility(isOpen, onClose);
+  
   const assessments = [
     {
       title: 'Red Teaming',
@@ -104,18 +107,6 @@ export default function SecurityAssessmentModal({ isOpen, onClose }: SecurityAss
     }
   };
 
-  // Prevent scroll when modal is open
-  React.useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = 'unset';
-    }
-    return () => {
-      document.body.style.overflow = 'unset';
-    };
-  }, [isOpen]);
-
   return (
     <AnimatePresence>
       {isOpen && (
@@ -131,6 +122,8 @@ export default function SecurityAssessmentModal({ isOpen, onClose }: SecurityAss
           />
           <div className="fixed inset-0 z-[101] flex items-center justify-center p-4 sm:p-6 pointer-events-none">
             <motion.div
+              ref={modalRef}
+              tabIndex={-1}
               variants={modalVariants}
               initial="hidden"
               animate="visible"

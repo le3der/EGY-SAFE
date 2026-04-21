@@ -50,6 +50,37 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
   const [mfaResolver, setMfaResolver] = useState<MultiFactorResolver | null>(null);
 
+  // Session Timeout (15 minutes of inactivity)
+  useEffect(() => {
+    let timeout: NodeJS.Timeout;
+
+    const resetTimeout = () => {
+      if (timeout) clearTimeout(timeout);
+      timeout = setTimeout(() => {
+        if (auth.currentUser) {
+          toast.error("Session expired due to inactivity.");
+          signOut(auth);
+        }
+      }, 15 * 60 * 1000); // 15 mins
+    };
+
+    if (user) {
+      resetTimeout();
+      window.addEventListener('mousemove', resetTimeout);
+      window.addEventListener('keydown', resetTimeout);
+      window.addEventListener('click', resetTimeout);
+      window.addEventListener('scroll', resetTimeout);
+    }
+
+    return () => {
+      if (timeout) clearTimeout(timeout);
+      window.removeEventListener('mousemove', resetTimeout);
+      window.removeEventListener('keydown', resetTimeout);
+      window.removeEventListener('click', resetTimeout);
+      window.removeEventListener('scroll', resetTimeout);
+    };
+  }, [user]);
+
   useEffect(() => {
     // Handle Magic Link sign-in
     const verifyMagicLink = async () => {
@@ -202,6 +233,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (error.code === 'auth/multi-factor-auth-required') {
         const resolver = getMultiFactorResolver(auth, error);
         setMfaResolver(resolver);
+      } else if (error.code === 'auth/popup-closed-by-user') {
+        toast.error('Sign-in cancelled. If the popup was blocked, please click the "Open in New Tab" icon above the view, or disable your popup blocker.');
       } else {
         toast.error('Login failed: ' + error.message);
       }

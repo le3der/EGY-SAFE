@@ -411,7 +411,7 @@ export default function LiveThreatFeed() {
   };
 
   return (
-    <section id="live-threat-feed" className="py-24 bg-black relative border-b border-white/5">
+    <section id="live-threat-feed" className="py-24 bg-black/20 backdrop-blur-sm relative border-b border-white/5">
       <div className="absolute inset-0 bg-grid-pattern opacity-30 z-0"></div>
       
       <div className="max-w-7xl mx-auto px-6 relative z-10 flex flex-col lg:flex-row gap-12 items-start">

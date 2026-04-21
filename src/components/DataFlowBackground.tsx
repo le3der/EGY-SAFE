@@ -181,23 +181,35 @@ export default function DataFlowBackground() {
       ctx.fillStyle = vignette;
       ctx.fillRect(0, 0, width, height);
 
-      animationFrameId = requestAnimationFrame(render);
+      if (!document.hidden) {
+        animationFrameId = requestAnimationFrame(render);
+      }
     };
+
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        render();
+      }
+    };
+
+    window.addEventListener('visibilitychange', handleVisibilityChange);
 
     render();
 
     return () => {
       window.removeEventListener('resize', resize);
+      window.removeEventListener('visibilitychange', handleVisibilityChange);
       cancelAnimationFrame(animationFrameId);
     };
   }, []);
 
   return (
-    <div className="absolute inset-0 z-0 overflow-hidden bg-black pointer-events-none">
+    <div className="fixed top-0 left-0 w-screen h-[100vh] z-0 overflow-hidden pointer-events-none bg-[#02050A]">
       <canvas 
         ref={canvasRef} 
-        className="w-full h-full opacity-60 dark:opacity-100 transition-opacity duration-1000"
+        className="w-full h-full opacity-80"
         aria-hidden="true"
+        role="presentation"
       />
     </div>
   );

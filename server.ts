@@ -182,7 +182,10 @@ async function startServer() {
   app.use(helmet({ 
     contentSecurityPolicy: false,
     crossOriginEmbedderPolicy: false,
+    crossOriginResourcePolicy: false,
+    crossOriginOpenerPolicy: false,
     xFrameOptions: false,
+    hsts: false
   }));
   
   const generateCsrfToken = () => crypto.randomBytes(32).toString('hex');

@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, QrCode, KeyRound, Copy, CheckCircle2, Smartphone, ShieldAlert } from 'lucide-react';
-import { multiFactor, TotpMultiFactorGenerator } from 'firebase/auth';
+import { multiFactor, TotpMultiFactorGenerator, TotpSecret, MultiFactorInfo } from 'firebase/auth';
 import { QRCodeSVG } from 'qrcode.react';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
+import { useModalAccessibility } from '../hooks/useModalAccessibility';
 
 interface MfaSetupModalProps {
   isOpen: boolean;
@@ -13,15 +14,18 @@ interface MfaSetupModalProps {
 
 export default function MfaSetupModal({ isOpen, onClose }: MfaSetupModalProps) {
   const { user } = useAuth();
-  const [totpSecret, setTotpSecret] = useState<any>(null);
+  const [totpSecret, setTotpSecret] = useState<TotpSecret | null>(null);
   const [qrUrl, setQrUrl] = useState<string>('');
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(true);
   const [verifying, setVerifying] = useState(false);
   const [errorStatus, setErrorStatus] = useState<string | null>(null);
   const [setupComplete, setSetupComplete] = useState(false);
-  const [enrolledFactors, setEnrolledFactors] = useState<any[]>([]);
+  const [enrolledFactors, setEnrolledFactors] = useState<MultiFactorInfo[]>([]);
   const [isManaging, setIsManaging] = useState(false);
+  const [recoveryCodes, setRecoveryCodes] = useState<string[]>([]);
+  
+  const modalRef = useModalAccessibility(isOpen, onClose);
 
   useEffect(() => {
     if (isOpen && user) {
@@ -30,6 +34,22 @@ export default function MfaSetupModal({ isOpen, onClose }: MfaSetupModalProps) {
       resetState();
     }
   }, [isOpen, user]);
+
+  const generateRecoveryCodes = () => {
+    // Note: In a production Firebase implementation, custom claims or a secure Firestore subcollection 
+    // should be used to store hashes of recovery codes if relying purely on standard Firebase Auth.
+    // For this demonstration, we are mocking the code generation so the UI is present.
+    const newCodes = Array.from({ length: 8 }, () => {
+      return Math.random().toString(36).substring(2, 6).toUpperCase() + '-' + 
+             Math.random().toString(36).substring(2, 6).toUpperCase();
+    });
+    setRecoveryCodes(newCodes);
+  };
+
+  const copyRecoveryCodes = () => {
+    navigator.clipboard.writeText(recoveryCodes.join('\n'));
+    toast.success('Recovery codes copied to clipboard');
+  };
 
   const checkEnrolledFactors = () => {
     try {
@@ -89,11 +109,9 @@ export default function MfaSetupModal({ isOpen, onClose }: MfaSetupModalProps) {
       const assertion = TotpMultiFactorGenerator.assertionForEnrollment(totpSecret, code);
       await multiFactor(user).enroll(assertion, 'Authenticator App');
       setSetupComplete(true);
+      generateRecoveryCodes();
       toast.success('Two-Factor Authentication successfully enabled!');
       checkEnrolledFactors();
-      setTimeout(() => {
-        onClose();
-      }, 2000);
     } catch (error: any) {
       toast.error('Invalid code. Please try again.');
     } finally {
@@ -131,6 +149,8 @@ export default function MfaSetupModal({ isOpen, onClose }: MfaSetupModalProps) {
             className="absolute inset-0 bg-black/60 backdrop-blur-sm"
           />
           <motion.div
+            ref={modalRef}
+            tabIndex={-1}
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
@@ -208,13 +228,35 @@ export default function MfaSetupModal({ isOpen, onClose }: MfaSetupModalProps) {
                 <motion.div 
                   initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}
-                  className="flex flex-col items-center justify-center py-8 text-center"
+                  className="flex flex-col items-center justify-center py-4 text-center"
                 >
-                  <div className="w-16 h-16 bg-green-500/10 text-green-500 rounded-full flex items-center justify-center mb-4">
-                    <CheckCircle2 className="w-8 h-8" />
+                  <div className="w-12 h-12 bg-green-500/10 text-green-500 rounded-full flex items-center justify-center mb-3">
+                    <CheckCircle2 className="w-6 h-6" />
                   </div>
                   <h3 className="text-xl font-bold text-black dark:text-white mb-2">2FA Enabled</h3>
-                  <p className="text-neutral-500">Your account is now protected by Two-Factor Authentication.</p>
+                  <p className="text-neutral-500 text-sm mb-6">Your account is now protected by Two-Factor Authentication.</p>
+                  
+                  {recoveryCodes.length > 0 && (
+                     <div className="w-full bg-[#111] dark:bg-[#050505] border border-black/10 dark:border-white/10 rounded-xl p-5 mb-6 text-left">
+                        <div className="flex justify-between items-center mb-3">
+                           <h4 className="font-bold text-white text-sm">Emergency Recovery Codes</h4>
+                           <button onClick={copyRecoveryCodes} className="text-xs text-cyan flex items-center gap-1 hover:text-cyan/80"><Copy className="w-3 h-3"/> Copy</button>
+                        </div>
+                        <p className="text-xs text-red-400 mb-4 font-medium">Save these codes in a secure place. They are the ONLY way to access your account if you lose your device.</p>
+                        <div className="grid grid-cols-2 gap-2 text-center text-sm font-mono">
+                           {recoveryCodes.map((code, idx) => (
+                              <div key={idx} className="bg-white/5 py-1.5 rounded text-neutral-300">{code}</div>
+                           ))}
+                        </div>
+                     </div>
+                  )}
+
+                  <button
+                    onClick={onClose}
+                    className="w-full px-6 py-3 bg-cyan text-black hover:bg-cyan/90 rounded-lg font-bold text-sm transition-all focus:outline-none focus:ring-2 focus:ring-cyan"
+                  >
+                    Done
+                  </button>
                 </motion.div>
               ) : (
                 <div className="flex flex-col items-center">

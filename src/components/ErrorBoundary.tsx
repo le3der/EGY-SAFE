@@ -22,6 +22,16 @@ export default class ErrorBoundary extends Component<Props, State> {
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error("Uncaught error:", error, errorInfo);
+    // In production, send this to your error reporting service (e.g. Sentry, LogRocket, AppSignal)
+    // Example: tracking service push
+    if (import.meta.env.PROD) {
+       // mock api call for reporting
+       fetch('/api/system/log-client-error', {
+         method: 'POST',
+         headers: { 'Content-Type': 'application/json' },
+         body: JSON.stringify({ error: error.message, stack: error.stack, info: errorInfo, location: window.location.href }),
+       }).catch(() => null); // Silent fail if reporting fails
+    }
   }
 
   public render() {

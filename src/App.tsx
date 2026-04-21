@@ -31,6 +31,7 @@ const LiveThreatFeed = React.lazy(() => import('./components/LiveThreatFeed'));
 const EgyptDarkWebScanner = React.lazy(() => import('./components/EgyptDarkWebScanner'));
 const AdminPanel = React.lazy(() => import('./components/AdminPanel'));
 const ClientDashboard = React.lazy(() => import('./components/ClientDashboard'));
+const CookieBanner = React.lazy(() => import('./components/CookieBanner'));
 
 // Fallback component for lazy loading boundaries
 const SkeletonLoader = ({ type = 'panel' }: { type?: 'modal' | 'panel' | 'widget' }) => {
@@ -214,6 +215,12 @@ export default function App() {
     root.classList.add('dark');
   }, []);
 
+  // Sync HTML lang and dir attributes
+  useEffect(() => {
+    document.documentElement.lang = lang === 'ar' ? 'ar-EG' : 'en-US';
+    document.documentElement.dir = dir;
+  }, [lang, dir]);
+
   useEffect(() => {
     // Scroll listener for sticky nav
     const handleScroll = () => {
@@ -267,13 +274,21 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-black text-neutral-400 font-sans text-base leading-[1.7] selection:bg-cyan selection:text-black overflow-x-hidden relative">
+    <div className="min-h-screen bg-[#02050A] text-neutral-400 font-sans text-base leading-[1.7] selection:bg-cyan selection:text-black overflow-x-hidden relative">
       <Toaster position="bottom-right" toastOptions={{ style: { background: '#111', color: '#fff', border: '1px solid rgba(0,194,255,0.3)' } }} />
       <Suspense fallback={<SkeletonLoader type="modal" />}>
         <MfaVerificationModal />
       </Suspense>
       {/* Global Noise Overlay */}
       <div className="fixed inset-0 bg-noise z-50 mix-blend-overlay pointer-events-none"></div>
+
+      {/* Skip to Main Content Link */}
+      <a 
+        href="#main-content" 
+        className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 z-[9999] bg-cyan text-black px-6 py-3 font-bold rounded shadow-xl outline-none ring-2 ring-white ring-offset-2 ring-offset-black"
+      >
+        {t('تخطي إلى المحتوى', 'Skip to content')}
+      </a>
 
       {/* Navigation */}
       <nav className={`fixed top-0 w-full z-50 transition-all duration-300 ${isScrolled ? 'bg-black/80 backdrop-blur-xl border-b border-white/5 py-4' : 'bg-transparent py-6'}`}>
@@ -393,12 +408,16 @@ export default function App() {
         <LoginModal isOpen={isLoginModalOpen} onClose={() => setIsLoginModalOpen(false)} />
       </Suspense>
 
-      {/* Hero Section */}
-      <section className="relative pt-32 pb-20 lg:pt-48 lg:pb-32 min-h-[90vh] flex flex-col justify-center overflow-hidden bg-black text-white">
-        {/* Animated Cyber Background */}
-        <Suspense fallback={<SkeletonLoader type="panel" />}>
-          <DataFlowBackground />
-        </Suspense>
+      {/* Global Animated Cyber Background moved outside main to span the entire page without clipping */}
+      <div className="fixed inset-0 z-0 pointer-events-none">
+         <Suspense fallback={<SkeletonLoader type="panel" />}>
+           <DataFlowBackground />
+         </Suspense>
+      </div>
+
+      <main id="main-content" className="relative z-10 w-full overflow-x-clip">
+        {/* Hero Section */}
+        <section className="relative pt-32 pb-20 lg:pt-48 lg:pb-32 min-h-[90vh] flex flex-col justify-center overflow-hidden bg-transparent text-white">
         
         {/* Subtle top/bottom fade to blend with standard sections */}
         <div className="absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-black to-transparent pointer-events-none z-0"></div>
@@ -463,60 +482,56 @@ export default function App() {
         <div className="w-full relative z-10 pt-16 mt-8 border-t border-black/5 dark:border-white/5">
           <div className="max-w-7xl mx-auto px-6 text-center">
             <p className="text-xs font-bold tracking-widest uppercase text-neutral-500 mb-8">Trusted by SecOps Teams at Forward-Thinking Enterprise</p>
-            <div className="flex flex-wrap justify-center gap-8 md:gap-16 items-center opacity-60 grayscale hover:grayscale-0 transition-all duration-700">
-              <LazyImage 
-                src="https://picsum.photos/seed/tech1/200/60" 
-                alt="Partner Logo 1" 
-                className="w-32 h-8 md:h-10 dark:invert"
-              />
-              <LazyImage 
-                src="https://picsum.photos/seed/tech2/200/60" 
-                alt="Partner Logo 2" 
-                className="w-32 h-8 md:h-10 dark:invert"
-              />
-              <LazyImage 
-                src="https://picsum.photos/seed/tech3/200/60" 
-                alt="Partner Logo 3" 
-                className="w-32 h-8 md:h-10 dark:invert"
-              />
-              <LazyImage 
-                src="https://picsum.photos/seed/tech4/200/60" 
-                alt="Partner Logo 4" 
-                className="w-32 h-8 md:h-10 dark:invert hidden sm:flex"
-              />
-              <LazyImage 
-                src="https://picsum.photos/seed/tech5/200/60" 
-                alt="Partner Logo 5" 
-                className="w-32 h-8 md:h-10 dark:invert hidden lg:flex"
-              />
+            <div className="flex flex-wrap justify-center items-center gap-8 md:gap-16 lg:gap-24 opacity-60 grayscale hover:grayscale-0 transition-all duration-700">
+              <div className="flex items-center gap-2 transition-all hover:text-cyan cursor-default">
+                <Globe className="w-6 h-6 text-neutral-400" />
+                <span className="text-sm font-bold tracking-widest text-neutral-400 uppercase">Globex AI</span>
+              </div>
+              <div className="flex items-center gap-2 transition-all hover:text-cyan cursor-default">
+                <Lock className="w-6 h-6 text-neutral-400" />
+                <span className="text-sm font-bold tracking-widest text-neutral-400 uppercase">FinCorp</span>
+              </div>
+              <div className="flex items-center gap-2 transition-all hover:text-cyan cursor-default">
+                <Shield className="w-6 h-6 text-neutral-400" />
+                <span className="text-sm font-bold tracking-widest text-neutral-400 uppercase">HealthShield</span>
+              </div>
+              <div className="flex items-center gap-2 transition-all hover:text-cyan cursor-default hidden md:flex">
+                <Activity className="w-6 h-6 text-neutral-400" />
+                <span className="text-sm font-bold tracking-widest text-neutral-400 uppercase">Nexus Retail</span>
+              </div>
+              <div className="flex items-center gap-2 transition-all hover:text-cyan cursor-default hidden lg:flex">
+                <Database className="w-6 h-6 text-neutral-400" />
+                <span className="text-sm font-bold tracking-widest text-neutral-400 uppercase">CloudNet</span>
+              </div>
             </div>
           </div>
         </div>
       </section>
 
       {/* Ticker Bar */}
-      <div className="w-full overflow-hidden border-y border-white/5 bg-black py-4 flex whitespace-nowrap relative z-20 mask-edges">
-        <div className="animate-marquee flex gap-12 text-sm font-mono text-neutral-500 dark:text-neutral-500 items-center w-max">
+      <div className="w-full overflow-hidden border-y border-white/5 bg-black/40 backdrop-blur-md py-4 flex whitespace-nowrap relative z-20 mask-edges" aria-hidden="true">
+        <div className="animate-marquee flex gap-12 text-sm font-mono text-neutral-400 dark:text-neutral-400 items-center w-max">
           {/* Half 1 */}
           <div className="flex gap-12 items-center">
-            <span>32,400 credentials found today</span><span className="text-black/70 dark:text-offwhite/30">|</span>
-            <span>14 Egyptian companies at risk</span><span className="text-black/70 dark:text-offwhite/30">|</span>
-            <span>Updated 3 mins ago</span><span className="text-black/70 dark:text-offwhite/30">|</span>
-            <span>32,400 credentials found today</span><span className="text-black/70 dark:text-offwhite/30">|</span>
-            <span>14 Egyptian companies at risk</span><span className="text-black/70 dark:text-offwhite/30">|</span>
-            <span>Updated 3 mins ago</span><span className="text-black/70 dark:text-offwhite/30">|</span>
+            <span>32,400 credentials found today</span><span className="text-white/30">|</span>
+            <span>14 Egyptian companies at risk</span><span className="text-white/30">|</span>
+            <span>Updated 3 mins ago</span><span className="text-white/30">|</span>
+            <span>32,400 credentials found today</span><span className="text-white/30">|</span>
+            <span>14 Egyptian companies at risk</span><span className="text-white/30">|</span>
+            <span>Updated 3 mins ago</span><span className="text-white/30">|</span>
           </div>
           {/* Half 2 */}
           <div className="flex gap-12 items-center">
-            <span>32,400 credentials found today</span><span className="text-black/70 dark:text-offwhite/30">|</span>
-            <span>14 Egyptian companies at risk</span><span className="text-black/70 dark:text-offwhite/30">|</span>
-            <span>Updated 3 mins ago</span><span className="text-black/70 dark:text-offwhite/30">|</span>
-            <span>32,400 credentials found today</span><span className="text-black/70 dark:text-offwhite/30">|</span>
-            <span>14 Egyptian companies at risk</span><span className="text-black/70 dark:text-offwhite/30">|</span>
-            <span>Updated 3 mins ago</span><span className="text-black/70 dark:text-offwhite/30">|</span>
+            <span>32,400 credentials found today</span><span className="text-white/30">|</span>
+            <span>14 Egyptian companies at risk</span><span className="text-white/30">|</span>
+            <span>Updated 3 mins ago</span><span className="text-white/30">|</span>
+            <span>32,400 credentials found today</span><span className="text-white/30">|</span>
+            <span>14 Egyptian companies at risk</span><span className="text-white/30">|</span>
+            <span>Updated 3 mins ago</span><span className="text-white/30">|</span>
           </div>
         </div>
       </div>
+      <div className="sr-only">Ticker status: 32,400 credentials found today, 14 Egyptian companies at risk, Updated 3 mins ago.</div>
 
       {/* Free Scan Section */}
       <Suspense fallback={<SkeletonLoader type="panel" />}>
@@ -534,9 +549,9 @@ export default function App() {
       </Suspense>
 
       {/* Trusted By Section */}
-      <div className="border-y border-white/5 bg-black/50 py-10 relative z-10 overflow-hidden">
+      <div className="border-y border-white/5 bg-transparent py-10 relative z-10 overflow-hidden">
         <div className="max-w-7xl mx-auto px-6">
-          <p className="text-center text-[10px] font-bold tracking-[0.2em] text-neutral-500 uppercase mb-8">
+          <p className="text-center text-[10px] font-bold tracking-[0.2em] text-neutral-400 uppercase mb-8">
             Protecting the infrastructure of industry leaders
           </p>
           <div className="flex flex-wrap justify-center items-center gap-8 md:gap-16 lg:gap-24 opacity-60 grayscale hover:grayscale-0 transition-all duration-700">
@@ -565,7 +580,7 @@ export default function App() {
       </div>
 
       {/* Services Section */}
-      <section id="services" className="py-24 bg-[#020202] dark:bg-[#020202] relative fade-in-section overflow-hidden">
+      <section id="services" className="py-24 bg-transparent relative fade-in-section overflow-hidden">
         {/* Subtle Horizontal glowing line running across the section */}
         <div className="absolute top-[65%] left-0 right-0 h-px bg-gradient-to-r from-transparent via-cyan/20 to-transparent z-0"></div>
 
@@ -805,7 +820,7 @@ export default function App() {
       </section>
 
       {/* How It Works Section */}
-      <section id="how-it-works" className="py-24 relative border-t border-white/5 fade-in-section bg-black text-white">
+      <section id="how-it-works" className="py-24 relative border-t border-white/5 fade-in-section bg-transparent text-white">
         <div className="max-w-7xl mx-auto px-6">
           <div className="mb-20 text-center max-w-3xl mx-auto">
             <h2 className="text-[clamp(1.5rem,3.5vw,2.5rem)] font-bold mb-4 text-white">How Egy Safe Works</h2>
@@ -819,7 +834,7 @@ export default function App() {
       </section>
 
       {/* Why Egy Safe Section */}
-      <section id="why" className="py-24 relative bg-[#050505] fade-in-section text-white">
+      <section id="why" className="py-24 relative bg-black/20 backdrop-blur-sm fade-in-section text-white border-y border-white/5">
         <div className="max-w-4xl mx-auto px-6">
           <div className="mb-16 text-center">
             <h2 className="text-[clamp(1.5rem,3.5vw,2.5rem)] font-bold mb-4 text-white">Why Security Teams Choose Egy Safe</h2>
@@ -861,7 +876,7 @@ export default function App() {
       </section>
 
       {/* Terminal / Code Section */}
-      <section className="py-24 bg-black border-y border-white/5 fade-in-section text-white">
+      <section className="py-24 bg-transparent border-t border-white/5 fade-in-section text-white">
         <div className="max-w-7xl mx-auto px-6 grid lg:grid-cols-2 gap-16 items-center">
           <div>
             <h2 className="text-[clamp(1.5rem,3.5vw,2.5rem)] font-bold mb-6 text-white">Intelligence-Driven Defense</h2>
@@ -929,7 +944,7 @@ export default function App() {
       </section>
 
       {/* Pricing Section */}
-      <section id="pricing" className="py-24 bg-black relative fade-in-section border-t border-white/5 text-white">
+      <section id="pricing" className="py-24 bg-black/20 backdrop-blur-sm relative fade-in-section border-t border-white/5 text-white">
         <div className="max-w-7xl mx-auto px-6">
           <div className="mb-16 text-center max-w-3xl mx-auto">
             <h2 className="text-[clamp(1.5rem,3.5vw,2.5rem)] font-bold mb-4 text-white">Transparent Pricing for Every Scale</h2>
@@ -1101,7 +1116,7 @@ export default function App() {
       </section>
 
       {/* Animated Stats Bar */}
-      <section className="py-16 bg-black border-y border-white/5 fade-in-section text-white">
+      <section className="py-16 bg-transparent border-y border-white/5 fade-in-section text-white">
         <div className="max-w-7xl mx-auto px-6">
           <div className="grid grid-cols-2 lg:grid-cols-4">
             <div className="p-6 text-center border-b border-r border-white/5 lg:border-b-0">
@@ -1133,7 +1148,7 @@ export default function App() {
       </section>
 
       {/* CTA Section */}
-      <section className="py-32 relative overflow-hidden bg-black fade-in-section text-white border-b border-white/5">
+      <section className="py-32 relative overflow-hidden bg-transparent fade-in-section text-white">
         
         {/* Subtle static gradient fallback underneath */}
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-4xl h-64 bg-cyan/5 blur-[120px] pointer-events-none z-0"></div>
@@ -1207,7 +1222,7 @@ export default function App() {
 
       {/* Admin Panel Section */}
       {user && profile?.role === 'Admin' && (
-        <section id="admin" className="py-24 relative bg-black border-t border-white/5 text-white">
+        <section id="admin" className="py-24 relative bg-transparent text-white">
           <div className="max-w-7xl mx-auto px-6">
             <Suspense fallback={<SkeletonLoader type="panel" />}>
               <AdminPanel />
@@ -1218,7 +1233,7 @@ export default function App() {
 
       {/* Client Dashboard Section */}
       {user && profile?.role === 'Viewer' && (
-        <section id="dashboard" className="py-24 relative bg-black border-t border-white/5 text-white">
+        <section id="dashboard" className="py-24 relative bg-transparent text-white">
           <div className="max-w-7xl mx-auto px-6">
              <Suspense fallback={<SkeletonLoader type="panel" />}>
                <ClientDashboard />
@@ -1226,9 +1241,10 @@ export default function App() {
           </div>
         </section>
       )}
+      </main>
 
       {/* Footer */}
-      <footer id="contact" className="bg-[#050505] pt-20 pb-8 border-t border-white/5 text-white">
+      <footer id="contact" className="relative z-20 bg-transparent pt-20 pb-8 text-white">
         <div className="max-w-7xl mx-auto px-6">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-12">
             {/* Column 1 - Brand */}
@@ -1239,62 +1255,72 @@ export default function App() {
                   EGY <span className="text-cyan">SAFE</span>
                 </span>
               </div>
-              <p className="text-neutral-500 text-sm leading-relaxed">
-                Protecting Egyptian and MENA businesses from the threats they can't see.
+              <p className="text-neutral-400 text-sm leading-relaxed">
+                {t('نحمي الشركات المصرية والشرق أوسطية من التهديدات غير المرئية.', "Protecting Egyptian and MENA businesses from the threats they can't see.")}
               </p>
-              <div className="flex gap-4">
-                <a href="#" className="text-neutral-500 hover:text-cyan focus:outline-none focus:text-cyan transition-colors" aria-label="LinkedIn">
-                  <Linkedin className="w-5 h-5" />
+              <div className="flex gap-5 mt-4">
+                {/* LinkedIn 2026 Modern SVG */}
+                <a href="https://linkedin.com/company/egysafe" target="_blank" rel="noreferrer" className="text-neutral-400 hover:text-[#0077B5] focus:outline-none transition-colors" aria-label="LinkedIn">
+                  <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
+                  </svg>
                 </a>
-                <a href="#" className="text-neutral-500 hover:text-cyan focus:outline-none focus:text-cyan transition-colors" aria-label="Twitter">
-                  <Twitter className="w-5 h-5" />
+                {/* X (Twitter) 2026 Modern SVG */}
+                <a href="https://x.com/egysafe" target="_blank" rel="noreferrer" className="text-neutral-400 hover:text-white focus:outline-none transition-colors" aria-label="X (Twitter)">
+                  <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M18.901 1.153h3.68l-8.04 9.19L24 22.846h-7.406l-5.8-7.584-6.638 7.584H.474l8.6-9.83L0 1.154h7.594l5.243 6.932ZM17.61 20.644h2.039L6.486 3.24H4.298Z"/>
+                  </svg>
                 </a>
-                <a href="#" className="text-neutral-500 hover:text-cyan focus:outline-none focus:text-cyan transition-colors" aria-label="Telegram">
-                  <Send className="w-5 h-5" />
+                {/* Telegram 2026 Modern SVG */}
+                <a href="https://t.me/egysafe" target="_blank" rel="noreferrer" className="text-neutral-400 hover:text-[#229ED9] focus:outline-none transition-colors" aria-label="Telegram">
+                  <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.799-1.185-.78-.415-1.21.258-1.912.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.888-.666 3.463-1.503 5.772-2.502 6.927-2.981 3.295-1.373 3.98-1.611 4.43-1.619z" />
+                  </svg>
                 </a>
               </div>
             </div>
 
             {/* Column 2 - Services */}
             <div className="lg:col-span-2">
-              <h4 className="font-bold mb-6 text-white">Services</h4>
-              <ul className="space-y-3 text-sm text-neutral-500">
-                <li><a href="#" className="hover:text-cyan focus:outline-none focus:text-cyan transition-colors">Dark Web Monitoring</a></li>
-                <li><a href="#" className="hover:text-cyan focus:outline-none focus:text-cyan transition-colors">Attack Surface Discovery</a></li>
-                <li><a href="#" className="hover:text-cyan focus:outline-none focus:text-cyan transition-colors">Security Assessment</a></li>
-                <li><a href="#" className="hover:text-blue-600 dark:hover:text-cyan focus:outline-none focus:text-blue-600 dark:focus:text-blue-600 dark:text-cyan transition-colors">Red Teaming & Adversary Simulation</a></li>
-                <li><a href="#" className="hover:text-blue-600 dark:hover:text-cyan focus:outline-none focus:text-blue-600 dark:focus:text-blue-600 dark:text-cyan transition-colors">Network Penetration Testing</a></li>
-                <li><a href="#" className="hover:text-blue-600 dark:hover:text-cyan focus:outline-none focus:text-blue-600 dark:focus:text-blue-600 dark:text-cyan transition-colors">Web & Mobile App Testing</a></li>
+              <h4 className="font-bold mb-6 text-white">{t('الخدمات', 'Services')}</h4>
+              <ul className="space-y-3 text-sm text-neutral-400">
+                <li><a href="#" className="hover:text-cyan focus:outline-none focus:text-cyan transition-colors">{t('مراقبة الدارك ويب', 'Dark Web Monitoring')}</a></li>
+                <li><a href="#" className="hover:text-cyan focus:outline-none focus:text-cyan transition-colors">{t('اكتشاف سطح الهجوم', 'Attack Surface Discovery')}</a></li>
+                <li><a href="#" className="hover:text-cyan focus:outline-none focus:text-cyan transition-colors">{t('التقييم الأمني', 'Security Assessment')}</a></li>
+                {/* Specific colored services as per the screenshot requirement */}
+                <li><a href="#" className="text-cyan hover:text-cyan/80 focus:outline-none transition-colors">{t('الفريق الأحمر ومحاكاة الخصوم', 'Red Teaming & Adversary Simulation')}</a></li>
+                <li><a href="#" className="text-cyan hover:text-cyan/80 focus:outline-none transition-colors">{t('اختبار اختراق الشبكات', 'Network Penetration Testing')}</a></li>
+                <li><a href="#" className="text-cyan hover:text-cyan/80 focus:outline-none transition-colors">{t('اختبار تطبيقات الويب والجوال', 'Web & Mobile App Testing')}</a></li>
               </ul>
             </div>
 
             {/* Column 3 - Company */}
             <div className="lg:col-span-2">
-              <h4 className="font-bold mb-6 text-white">Company</h4>
-              <ul className="space-y-3 text-sm text-neutral-500">
-                <li><a href="#" className="hover:text-cyan focus:outline-none focus:text-cyan transition-colors">About Us</a></li>
-                <li><a href="#" className="hover:text-cyan focus:outline-none focus:text-cyan transition-colors">How It Works</a></li>
-                <li><a href="#" className="hover:text-cyan focus:outline-none focus:text-cyan transition-colors">Case Studies</a></li>
-                <li><a href="#" className="hover:text-cyan focus:outline-none focus:text-cyan transition-colors">Blog</a></li>
-                <li><a href="#" className="hover:text-cyan focus:outline-none focus:text-cyan transition-colors">Careers</a></li>
-                <li><a href="#contact" className="hover:text-cyan focus:outline-none focus:text-cyan transition-colors">Contact</a></li>
+              <h4 className="font-bold mb-6 text-white">{t('الشركة', 'Company')}</h4>
+              <ul className="space-y-3 text-sm text-neutral-400">
+                <li><a href="#" className="hover:text-cyan focus:outline-none focus:text-cyan transition-colors">{t('معلومات عنا', 'About Us')}</a></li>
+                <li><a href="#" className="hover:text-cyan focus:outline-none focus:text-cyan transition-colors">{t('كيف نعمل', 'How It Works')}</a></li>
+                <li><a href="#" className="hover:text-cyan focus:outline-none focus:text-cyan transition-colors">{t('دراسات الحالة', 'Case Studies')}</a></li>
+                <li><a href="#" className="hover:text-cyan focus:outline-none focus:text-cyan transition-colors">{t('المدونة', 'Blog')}</a></li>
+                <li><a href="#" className="hover:text-cyan focus:outline-none focus:text-cyan transition-colors">{t('الوظائف', 'Careers')}</a></li>
+                <li><a href="#contact" className="hover:text-cyan focus:outline-none focus:text-cyan transition-colors">{t('اتصل بنا', 'Contact')}</a></li>
               </ul>
             </div>
 
             {/* Column 4 - Contact Info & Form */}
             <div className="lg:col-span-4">
-              <h4 className="font-bold mb-4 text-white">Contact Us</h4>
+              <h4 className="font-bold mb-4 text-white">{t('اتصل بنا', 'Contact Us')}</h4>
               
               <div className="mb-6 space-y-2 text-sm text-neutral-400">
                 <div className="flex items-center gap-2">
-                  <Mail className="w-4 h-4 text-cyan" />
-                  <a href="mailto:contact@egysafe.com" className="hover:text-cyan transition-colors">contact@egysafe.com</a>
+                  <Mail className="w-4 h-4 text-cyan inline-block shrink-0" />
+                  <a href="mailto:contact@egysafe.com" className="hover:text-cyan transition-colors" dir="ltr">contact@egysafe.com</a>
                 </div>
                 <div className="flex items-center gap-2 mt-2">
-                   <div className="w-4 h-4 rounded-full border border-cyan/50 flex items-center justify-center shrink-0">
+                   <div className="w-4 h-4 rounded-full border border-cyan/50 flex flex-col items-center justify-center shrink-0">
                      <div className="w-1.5 h-1.5 bg-cyan rounded-full animate-pulse"></div>
                    </div>
-                   <span>Cairo, Egypt HQ / Remote MENA</span>
+                   <span>{t('القاهرة، مصر (المقر الأساسي) / عن بُعد في الشرق الأوسط', 'Cairo, Egypt HQ / Remote MENA')}</span>
                 </div>
               </div>
 
@@ -1306,11 +1332,11 @@ export default function App() {
           </div>
 
           {/* Bottom Bar */}
-          <div className="border-t border-white/5 mt-16 pt-8 flex flex-col md:flex-row justify-between items-center gap-4 text-sm text-neutral-500">
-            <div>© 2025 Egy Safe. All rights reserved.</div>
+          <div className="border-t border-white/5 mt-16 pt-8 flex flex-col md:flex-row justify-between items-center gap-4 text-sm text-neutral-400">
+            <div>© 2025 Egy Safe. {t('جميع الحقوق محفوظة.', 'All rights reserved.')}</div>
             <div className="flex gap-6">
-              <a href="#" className="hover:text-white focus:outline-none focus:text-white transition-colors">Privacy Policy</a>
-              <a href="#" className="hover:text-white focus:outline-none focus:text-white transition-colors">Terms of Service</a>
+              <a href="#" className="hover:text-white focus:outline-none focus:text-white transition-colors">{t('سياسة الخصوصية', 'Privacy Policy')}</a>
+              <a href="#" className="hover:text-white focus:outline-none focus:text-white transition-colors">{t('شروط الخدمة', 'Terms of Service')}</a>
             </div>
           </div>
         </div>
@@ -1353,6 +1379,10 @@ export default function App() {
           <ArrowRight className="w-4 h-4 text-cyan/70 group-hover:text-cyan group-hover:translate-x-1 transition-all" />
         </button>
       </div>
+
+      <Suspense fallback={null}>
+        <CookieBanner />
+      </Suspense>
     </div>
   );
 }

@@ -3,8 +3,26 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#00C2FF" />
+    <link rel="canonical" href="https://egysafe.com/" />
+    
     <title>Egy Safe | Enterprise Threat Intelligence & ASM</title>
     
+    <!-- Preconnects for Performance -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="preconnect" href="https://identitytoolkit.googleapis.com" crossorigin />
+    <link rel="preconnect" href="https://securetoken.googleapis.com" crossorigin />
+
+    <!-- Google Fonts with Display Swap & Subresource Integrity handled by browser via standard link -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+
+    <!-- Favicon (SVG for high res support) -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2300C2FF' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z'/%3E%3Cpath d='m9 12 2 2 4-4'/%3E%3C/svg%3E" />
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/manifest.json" />
+
     <!-- Primary Meta Tags -->
     <meta name="title" content="Egy Safe | Enterprise Threat Intelligence & ASM" />
     <meta name="description" content="Egy Safe provides expert cybersecurity services, dark web monitoring, penetration testing, and continuous attack surface management to protect your organization." />
@@ -15,14 +33,34 @@
     <meta property="og:url" content="https://egysafe.com/" />
     <meta property="og:title" content="Egy Safe | Enterprise Threat Intelligence & ASM" />
     <meta property="og:description" content="Egy Safe provides expert cybersecurity services, dark web monitoring, penetration testing, and continuous attack surface management to protect your organization." />
-    <meta property="og:image" content="https://picsum.photos/seed/cybersecurity/1200/630" />
+    <meta property="og:image" content="https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&w=1200&h=630&q=80" />
     
     <!-- Twitter -->
     <meta property="twitter:card" content="summary_large_image" />
     <meta property="twitter:url" content="https://egysafe.com/" />
     <meta property="twitter:title" content="Egy Safe | Enterprise Threat Intelligence & ASM" />
     <meta property="twitter:description" content="Egy Safe provides expert cybersecurity services, dark web monitoring, penetration testing, and continuous attack surface management to protect your organization." />
-    <meta property="twitter:image" content="https://picsum.photos/seed/cybersecurity/1200/630" />
+    <meta property="twitter:image" content="https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&w=1200&h=630&q=80" />
+
+    <!-- JSON-LD Structured Data for B2B SaaS -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "Organization",
+        "name": "Egy Safe",
+        "url": "https://egysafe.com",
+        "logo": "https://egysafe.com/logo.png",
+        "description": "Enterprise Threat Intelligence & Attack Surface Management startup in Egypt.",
+        "address": {
+          "@type": "PostalAddress",
+          "addressLocality": "Cairo",
+          "addressCountry": "EG"
+        },
+        "sameAs": [
+          "https://www.linkedin.com/company/egysafe"
+        ]
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>

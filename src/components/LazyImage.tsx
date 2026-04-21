@@ -7,6 +7,7 @@ interface LazyImageProps extends React.ImgHTMLAttributes<HTMLImageElement> {
 
 export default function LazyImage({ src, alt, className, ...props }: LazyImageProps) {
   const [isLoaded, setIsLoaded] = useState(false);
+  const [hasError, setHasError] = useState(false);
   const [inView, setInView] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -37,11 +38,18 @@ export default function LazyImage({ src, alt, className, ...props }: LazyImagePr
       className={`relative overflow-hidden ${className || ''}`}
     >
       {/* Show a subtle pulsing placeholder while the image hasn't loaded */}
-      {!isLoaded && (
+      {!isLoaded && !hasError && (
         <div className="absolute inset-0 bg-white/5 animate-pulse rounded-md"></div>
       )}
       
-      {inView && (
+      {/* Error state fallback */}
+      {hasError && (
+        <div className="absolute inset-0 bg-black/20 dark:bg-white/5 rounded-md flex items-center justify-center">
+          <span className="text-xs text-neutral-500">Image failed to load</span>
+        </div>
+      )}
+      
+      {inView && !hasError && (
         <img
           src={src}
           alt={alt}
@@ -49,6 +57,7 @@ export default function LazyImage({ src, alt, className, ...props }: LazyImagePr
           decoding="async"
           referrerPolicy="no-referrer"
           onLoad={() => setIsLoaded(true)}
+          onError={() => setHasError(true)}
           className={`w-full h-full transition-opacity duration-700 ease-in-out ${isLoaded ? 'opacity-100' : 'opacity-0'} ${props.style ? '' : 'object-contain'}`}
           {...props}
         />

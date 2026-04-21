@@ -5,6 +5,7 @@ import toast from 'react-hot-toast';
 import { trackEvent } from '../lib/analytics';
 import { db } from '../lib/firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { useModalAccessibility } from '../hooks/useModalAccessibility';
 
 interface ConsultationModalProps {
   isOpen: boolean;
@@ -14,6 +15,8 @@ interface ConsultationModalProps {
 export default function ConsultationModal({ isOpen, onClose }: ConsultationModalProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+
+  const modalRef = useModalAccessibility(isOpen, onClose);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -67,6 +70,8 @@ export default function ConsultationModal({ isOpen, onClose }: ConsultationModal
             className="absolute inset-0 bg-black/60 backdrop-blur-sm"
           />
           <motion.div
+            ref={modalRef}
+            tabIndex={-1}
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}

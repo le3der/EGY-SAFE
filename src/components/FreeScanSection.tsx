@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Search, Loader2, ShieldAlert, CheckCircle, AlertTriangle, Key, Globe, FileWarning, Download } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -101,10 +101,25 @@ export default function FreeScanSection() {
     }
   };
 
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
+  }, []);
+
   const handleScan = async (e: React.FormEvent) => {
     e.preventDefault();
     const domainToScan = target.trim();
     if (!domainToScan) return;
+
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    abortControllerRef.current = new AbortController();
 
     // Client-side Rate Limiting (Cooldown: 30 seconds)
     const now = Date.now();
@@ -139,7 +154,9 @@ export default function FreeScanSection() {
     }, 800);
 
     try {
-      const response = await fetch(`/api/intel/scan?domain=${encodeURIComponent(domainToScan)}`);
+      const response = await fetch(`/api/intel/scan?domain=${encodeURIComponent(domainToScan)}`, {
+        signal: abortControllerRef.current.signal
+      });
       const report = await response.json();
       
       clearInterval(interval);
@@ -160,7 +177,12 @@ export default function FreeScanSection() {
         setScanComplete(true);
       }, 500);
       
-    } catch (err) {
+    } catch (err: any) {
+      if (err.name === 'AbortError') {
+        console.log('Scan request aborted');
+        clearInterval(interval);
+        return;
+      }
       console.error(err);
       clearInterval(interval);
       setScanStep(steps.length - 1);
@@ -176,7 +198,7 @@ export default function FreeScanSection() {
   };
 
   return (
-    <section id="free-scan" className="py-24 bg-[#050505] relative border-b border-white/5 scroll-mt-20">
+    <section id="free-scan" className="py-24 bg-transparent relative border-b border-white/5 scroll-mt-20">
       <div className="absolute inset-0 bg-noise opacity-10 pointer-events-none"></div>
       
       <div className="max-w-4xl mx-auto px-6 relative z-10">
@@ -197,14 +219,18 @@ export default function FreeScanSection() {
           {/* Subtle glow */}
           <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-cyan/30 to-transparent"></div>
           
+          <div aria-live="polite" className="sr-only">
+            {isScanning ? 'Scan in progress...' : scanComplete && scanReport ? `Scan complete. Found ${scanReport.riskLevel} risk level.` : ''}
+          </div>
+
           <form onSubmit={handleScan} className="relative z-10 mb-8 max-w-2xl mx-auto">
             <div className="flex flex-col sm:flex-row gap-4">
               <div className="relative flex-1">
-                <Globe className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-500" />
+                <Globe className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400" />
                 <input
                   type="text"
                   placeholder="Enter domain (e.g., yourcompany.com.eg)"
-                  className="w-full bg-black border border-white/10 rounded-xl py-4 pl-12 pr-4 text-white focus:outline-none focus:border-cyan focus:ring-1 focus:ring-cyan transition-colors"
+                  className="w-full bg-black border border-white/10 rounded-xl py-4 pl-12 pr-4 text-white focus:outline-none focus:border-cyan focus:ring-1 focus:ring-cyan transition-colors placeholder:text-neutral-500"
                   value={target}
                   onChange={(e) => setTarget(e.target.value)}
                   disabled={isScanning}

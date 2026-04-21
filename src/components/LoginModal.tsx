@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, LogIn, Mail, ArrowRight, Lock, UserPlus, Key } from 'lucide-react';
+import { X, LogIn, Mail, ArrowRight, Lock, UserPlus, Key, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
+import { useModalAccessibility } from '../hooks/useModalAccessibility';
 
 interface LoginModalProps {
   isOpen: boolean;
@@ -13,9 +14,36 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
   const { signInWithGoogle, signInWithEmail, signUpWithEmail, resetPassword } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   const [mode, setMode] = useState<'login' | 'signup' | 'forgot'>('login');
+
+  const modalRef = useModalAccessibility(isOpen, onClose);
+
+  // Reset form when modal closes or opens
+  useEffect(() => {
+    if (!isOpen) {
+      setEmail('');
+      setPassword('');
+      setShowPassword(false);
+      setMode('login');
+      setIsSubmitting(false);
+    }
+  }, [isOpen]);
+
+  const calculateStrength = (pass: string) => {
+    let score = 0;
+    if (pass.length > 7) score += 1;
+    if (/[A-Z]/.test(pass)) score += 1;
+    if (/[0-9]/.test(pass)) score += 1;
+    if (/[^a-zA-Z0-9]/.test(pass)) score += 1;
+    return score; // 0 to 4
+  };
+
+  const strength = calculateStrength(password);
+  const strengthLabels = ['Weak', 'Fair', 'Good', 'Strong', 'Excellent'];
+  const strengthColors = ['bg-red-500', 'bg-orange-500', 'bg-yellow-500', 'bg-green-500', 'bg-cyan'];
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -35,6 +63,14 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
         onClose();
       } else if (mode === 'signup') {
         if (!password) { toast.error('Please enter a password'); return; }
+        if (password.length < 8) {
+          toast.error('Password must be at least 8 characters long');
+          return;
+        }
+        if (!/(?=.*[A-Z])(?=.*[0-9])/.test(password)) {
+          toast.error('Password must contain at least one uppercase letter and one number');
+          return;
+        }
         await signUpWithEmail(email, password);
         setMode('login');
       }
@@ -66,6 +102,8 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
             className="absolute inset-0 bg-black/60 backdrop-blur-sm"
           />
           <motion.div
+            ref={modalRef}
+            tabIndex={-1}
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
@@ -137,14 +175,33 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
                         <Lock className="h-5 w-5 text-neutral-500" />
                       </div>
                       <input
-                        type="password"
+                        type={showPassword ? 'text' : 'password'}
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                         placeholder="••••••••"
-                        className="w-full bg-gray-50 dark:bg-[#111] border border-black/10 dark:border-white/10 rounded-lg pl-10 pr-4 py-3 text-black dark:text-white outline-none focus:border-cyan/50 focus:ring-1 focus:ring-cyan/50 transition-all placeholder:text-neutral-500/50"
+                        className="w-full bg-gray-50 dark:bg-[#111] border border-black/10 dark:border-white/10 rounded-lg pl-10 pr-10 py-3 text-black dark:text-white outline-none focus:border-cyan/50 focus:ring-1 focus:ring-cyan/50 transition-all placeholder:text-neutral-500/50"
                         required
                       />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute inset-y-0 right-0 pr-3 flex items-center text-neutral-500 hover:text-cyan transition-colors"
+                      >
+                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
                     </div>
+                    {mode === 'signup' && password.length > 0 && (
+                      <div className="mt-2">
+                        <div className="flex gap-1 mb-1">
+                          {[0, 1, 2, 3].map((idx) => (
+                            <div key={idx} className={`h-1.5 flex-1 rounded-full ${idx <= strength ? strengthColors[strength] : 'bg-black/10 dark:bg-white/10'}`} />
+                          ))}
+                        </div>
+                        <p className={`text-xs ${strengthColors[strength].replace('bg-', 'text-')}`}>
+                          Password Strength: {strengthLabels[strength]}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 )}
                 

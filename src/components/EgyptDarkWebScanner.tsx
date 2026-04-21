@@ -220,7 +220,7 @@ export default function EgyptDarkWebScanner() {
   };
 
   return (
-    <section id="egypt-dark-web-scanner" className="py-24 bg-[#050505] relative border-b border-white/5">
+    <section id="egypt-dark-web-scanner" className="py-24 bg-transparent relative border-b border-white/5">
       <div className="absolute inset-0 bg-noise opacity-10 pointer-events-none"></div>
       
       <div className="max-w-7xl mx-auto px-6 relative z-10 flex flex-col lg:flex-row-reverse gap-12 items-start">

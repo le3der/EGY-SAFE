@@ -1,0 +1,17 @@
+{
+  "name": "Egy Safe",
+  "short_name": "Egy Safe",
+  "description": "Enterprise Threat Intelligence & ASM",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#020202",
+  "theme_color": "#00C2FF",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

@@ -7,11 +7,13 @@ import { Shield, Plus, Trash2, Download, AlertTriangle, CheckCircle, Activity, G
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import toast from 'react-hot-toast';
+import ThreatMap from './ThreatMap';
+import GeminiThreatSummary from './GeminiThreatSummary';
 
 interface Asset {
   id: string;
   value: string;
-  type: 'DOMAIN' | 'IP';
+  type: 'DOMAIN' | 'IP' | 'EMAIL';
 }
 
 interface NotificationSettings {
@@ -23,11 +25,11 @@ export default function ClientDashboard() {
   const { user } = useAuth();
   const [assets, setAssets] = useState<Asset[]>([]);
   const [newAsset, setNewAsset] = useState('');
-  const [assetType, setAssetType] = useState<'DOMAIN' | 'IP'>('DOMAIN');
+  const [assetType, setAssetType] = useState<'DOMAIN' | 'IP' | 'EMAIL'>('DOMAIN');
   const [loading, setLoading] = useState(true);
   const [isExporting, setIsExporting] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'settings'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'intelligence' | 'alerts' | 'playbooks' | 'settings'>('dashboard');
   const [notificationSettings, setNotificationSettings] = useState<NotificationSettings>({ email: '', webhookUrl: '' });
   
   const dashboardRef = useRef<HTMLDivElement>(null);
@@ -214,16 +216,34 @@ export default function ClientDashboard() {
           <p className="text-neutral-400 mt-2">Threat intelligence & attack surface management metrics</p>
         </div>
         <div className="flex gap-4">
-          <div className="flex bg-black/50 p-1 border border-white/10 rounded-lg">
+          <div className="flex bg-black/50 p-1 border border-white/10 rounded-lg overflow-x-auto max-w-[60vw]">
              <button 
                onClick={() => setActiveTab('dashboard')}
-               className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${activeTab === 'dashboard' ? 'bg-white/10 text-white' : 'text-neutral-400 hover:text-white'}`}
+               className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors whitespace-nowrap ${activeTab === 'dashboard' ? 'bg-white/10 text-white' : 'text-neutral-400 hover:text-white'}`}
              >
                Dashboard
              </button>
              <button 
+               onClick={() => setActiveTab('intelligence')}
+               className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors whitespace-nowrap ${activeTab === 'intelligence' ? 'bg-white/10 text-white' : 'text-neutral-400 hover:text-white'}`}
+             >
+               Intelligence Map
+             </button>
+             <button 
+               onClick={() => setActiveTab('alerts')}
+               className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors whitespace-nowrap ${activeTab === 'alerts' ? 'bg-white/10 text-white' : 'text-neutral-400 hover:text-white'}`}
+             >
+               Smart Alerts
+             </button>
+             <button 
+               onClick={() => setActiveTab('playbooks')}
+               className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors whitespace-nowrap ${activeTab === 'playbooks' ? 'bg-white/10 text-white' : 'text-neutral-400 hover:text-white'}`}
+             >
+               Automations
+             </button>
+             <button 
                onClick={() => setActiveTab('settings')}
-               className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${activeTab === 'settings' ? 'bg-white/10 text-white' : 'text-neutral-400 hover:text-white'}`}
+               className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors whitespace-nowrap ${activeTab === 'settings' ? 'bg-white/10 text-white' : 'text-neutral-400 hover:text-white'}`}
              >
                Settings
              </button>
@@ -274,7 +294,7 @@ export default function ClientDashboard() {
         </div>
       )}
 
-      {activeTab === 'settings' ? (
+      {activeTab === 'settings' && (
          <div className="cyber-glass-card border border-white/10 rounded-xl p-6 bg-[#0A0A0A]">
             <h3 className="text-xl font-bold mb-6 flex items-center gap-2"><Bell className="w-5 h-5 text-cyan"/> Notification Settings</h3>
             <p className="text-neutral-400 mb-8 max-w-2xl">Configure how you receive alerts about critical threats and vulnerabilities detected in your attack surface.</p>
@@ -332,7 +352,130 @@ export default function ClientDashboard() {
                </button>
             </form>
          </div>
-      ) : (
+      )}
+      
+      {activeTab === 'intelligence' && (
+        <div className="flex flex-col gap-8">
+            <h3 className="text-xl font-bold flex items-center gap-2"><Globe className="w-5 h-5 text-cyan"/> Geographic Threat Map</h3>
+            <p className="text-neutral-400 -mt-6">Real-time origin map of detected brute force, DDoS, and APT activities.</p>
+            <ThreatMap />
+            
+            <div className="cyber-glass-card border border-white/10 rounded-xl p-6 bg-[#0A0A0A] mt-4">
+               <h3 className="text-xl font-bold mb-4 flex items-center gap-2"><Server className="w-5 h-5 text-cyan"/> IoC Database (Indicators of Compromise)</h3>
+               <p className="text-neutral-400 mb-6 text-sm">Actionable signatures, hashes, and IP addresses parsed from latest threat feeds.</p>
+               <div className="overflow-x-auto">
+                 <table className="w-full text-left text-sm whitespace-nowrap">
+                   <thead>
+                     <tr className="border-b border-white/10 text-neutral-500 uppercase tracking-widest text-[10px]">
+                       <th className="py-4 px-4 font-semibold">Indicator</th>
+                       <th className="py-4 px-4 font-semibold">Type</th>
+                       <th className="py-4 px-4 font-semibold">Confidence</th>
+                       <th className="py-4 px-4 font-semibold">First Seen</th>
+                     </tr>
+                   </thead>
+                   <tbody>
+                      <tr className="border-b border-white/5 hover:bg-white/5 transition-colors">
+                         <td className="py-4 px-4 text-white font-mono">194.26.29.112</td>
+                         <td className="py-4 px-4"><span className="bg-red-500/20 text-red-500 px-2 py-1 rounded text-xs border border-red-500/30">IP - C2 Server</span></td>
+                         <td className="py-4 px-4">98%</td>
+                         <td className="py-4 px-4 text-neutral-400">10 mins ago</td>
+                      </tr>
+                      <tr className="border-b border-white/5 hover:bg-white/5 transition-colors">
+                         <td className="py-4 px-4 text-white font-mono">e3b0c44298fc1c149afbf4c8996fb924...</td>
+                         <td className="py-4 px-4"><span className="bg-purple-500/20 text-purple-500 px-2 py-1 rounded text-xs border border-purple-500/30">File Hash (Ransomware)</span></td>
+                         <td className="py-4 px-4">100%</td>
+                         <td className="py-4 px-4 text-neutral-400">1 hr ago</td>
+                      </tr>
+                      <tr className="border-b border-white/5 hover:bg-white/5 transition-colors">
+                         <td className="py-4 px-4 text-white font-mono">secure-login-portal-auth.com</td>
+                         <td className="py-4 px-4"><span className="bg-yellow-500/20 text-yellow-500 px-2 py-1 rounded text-xs border border-yellow-500/30">Domain (Phishing)</span></td>
+                         <td className="py-4 px-4">85%</td>
+                         <td className="py-4 px-4 text-neutral-400">4 hrs ago</td>
+                      </tr>
+                   </tbody>
+                 </table>
+               </div>
+            </div>
+        </div>
+      )}
+
+      {activeTab === 'alerts' && (
+        <div className="flex flex-col gap-6">
+           <h3 className="text-xl font-bold flex items-center gap-2"><Bell className="w-5 h-5 text-cyan"/> Smart Alerts & Summarization</h3>
+           <p className="text-neutral-400 -mt-4">Repetitive alerts are grouped, and complex logs are summarized using Gemini AI.</p>
+           
+           <div className="space-y-6">
+              {/* Alert Card 1 */}
+              <div className="border border-red-500/30 bg-red-500/5 rounded-xl p-6">
+                  <div className="flex justify-between items-start mb-4">
+                     <div>
+                        <h4 className="text-lg font-bold text-white flex items-center gap-2">
+                           <AlertTriangle className="w-5 h-5 text-red-500" />
+                           Multiple Failed Authentications (Grouped)
+                        </h4>
+                        <p className="text-xs text-neutral-400 mt-1">Found 452 occurrences from 12 distinct IPs targeting admin.example.com</p>
+                     </div>
+                     <span className="bg-red-500 text-white text-[10px] font-bold px-2 py-1 rounded uppercase tracking-wider">Critical</span>
+                  </div>
+                  
+                  <GeminiThreatSummary threatDetails="Multiple repeated login failures targeting 'admin' account originating from subnet 194.26.x.x followed by port scanning on 22, 3389, and 443 indicating brute-force and reconnaissance." />
+              </div>
+
+              {/* Alert Card 2 */}
+              <div className="border border-yellow-500/30 bg-yellow-500/5 rounded-xl p-6">
+                  <div className="flex justify-between items-start mb-4">
+                     <div>
+                        <h4 className="text-lg font-bold text-white flex items-center gap-2">
+                           <AlertTriangle className="w-5 h-5 text-yellow-500" />
+                           Suspicious Outbound Traffic
+                        </h4>
+                        <p className="text-xs text-neutral-400 mt-1">Anomaly Detection triggered: Unusual spike in SMB protocol traffic</p>
+                     </div>
+                     <span className="bg-yellow-500 text-black text-[10px] font-bold px-2 py-1 rounded uppercase tracking-wider">High</span>
+                  </div>
+                  
+                  <GeminiThreatSummary threatDetails="Unusual outbound volume (4GB) of SMB traffic (port 445) moving to external untrusted IP address 45.33.22.11 during non-business hours, potentially indicating data exfiltration." />
+              </div>
+           </div>
+        </div>
+      )}
+
+      {activeTab === 'playbooks' && (
+         <div className="flex flex-col gap-6">
+            <h3 className="text-xl font-bold flex items-center gap-2"><CheckCircle className="w-5 h-5 text-cyan"/> Automated Response Playbooks</h3>
+            <p className="text-neutral-400 -mt-4">Define rules that execute automatically when specific threat conditions are met.</p>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
+               {/* Playbook 1 */}
+               <div className="cyber-glass-card border border-white/10 rounded-xl p-6 bg-[#0A0A0A]">
+                  <div className="flex justify-between items-center mb-4">
+                     <h4 className="font-bold text-white">Auto-Block Malicious IPs</h4>
+                     <label className="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" className="sr-only peer" defaultChecked />
+                        <div className="w-11 h-6 bg-white/20 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-cyan"></div>
+                     </label>
+                  </div>
+                  <p className="text-sm text-neutral-400 mb-4">Automatically push IP addresses with &gt; 95% malicious confidence to Cloudflare and AWS WAF blocking lists.</p>
+                  <p className="text-xs font-mono text-cyan flex items-center gap-1"><ArrowRight className="w-3 h-3"/> Active (Fired 12 times this week)</p>
+               </div>
+
+               {/* Playbook 2 */}
+               <div className="cyber-glass-card border border-white/10 rounded-xl p-6 bg-[#0A0A0A]">
+                  <div className="flex justify-between items-center mb-4">
+                     <h4 className="font-bold text-white">Quarantine Compromised Endpoints</h4>
+                     <label className="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" className="sr-only peer" />
+                        <div className="w-11 h-6 bg-white/20 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-cyan"></div>
+                     </label>
+                  </div>
+                  <p className="text-sm text-neutral-400 mb-4">Isolate devices from the corporate network automatically if Ransomware IoCs are matched via EDR.</p>
+                  <p className="text-xs font-mono text-neutral-500 flex items-center gap-1"><ArrowRight className="w-3 h-3"/> Inactive</p>
+               </div>
+            </div>
+         </div>
+      )}
+
+      {activeTab === 'dashboard' && (
         <div ref={dashboardRef} className="flex flex-col gap-8 bg-black p-4 rounded-xl -m-4">
           
           {/* KPI Widgets */}
@@ -389,7 +532,10 @@ export default function ClientDashboard() {
         {/* Asset Inventory Section */}
         <div className="cyber-glass-card border border-white/10 rounded-xl p-6 bg-[#0A0A0A]">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-            <h3 className="text-lg font-bold flex items-center gap-2"><Server className="w-5 h-5 text-cyan"/> Asset Inventory</h3>
+            <div>
+              <h3 className="text-lg font-bold flex items-center gap-2"><Server className="w-5 h-5 text-cyan"/> Asset Inventory</h3>
+              <p className="text-neutral-400 text-sm mt-1">Manage domains, IPs, and email addresses monitored for threats.</p>
+            </div>
             
             <form onSubmit={handleAddAsset} className="flex flex-col sm:flex-row gap-2 w-full md:w-auto" data-html2canvas-ignore>
               <select 
@@ -399,12 +545,13 @@ export default function ClientDashboard() {
               >
                 <option value="DOMAIN">Domain</option>
                 <option value="IP">IP Address</option>
+                <option value="EMAIL">Email Address</option>
               </select>
               <input 
                 type="text" 
                 value={newAsset}
                 onChange={(e) => setNewAsset(e.target.value)}
-                placeholder="e.g. corp.example.com"
+                placeholder={assetType === 'EMAIL' ? 'admin@company.com' : 'e.g. corp.example.com'}
                 className="bg-[#111] border border-white/10 text-white rounded-lg px-4 py-2 outline-none focus:border-cyan flex-1"
                 required
               />
@@ -418,20 +565,22 @@ export default function ClientDashboard() {
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
+            <table className="w-full text-left text-sm whitespace-nowrap">
               <thead>
                 <tr className="border-b border-white/10 text-neutral-500 uppercase tracking-widest text-[10px]">
                   <th className="py-4 px-4 font-semibold">Asset Value</th>
                   <th className="py-4 px-4 font-semibold">Type</th>
+                  <th className="py-4 px-4 font-semibold">Tags</th>
+                  <th className="py-4 px-4 font-semibold">Risk Score</th>
                   <th className="py-4 px-4 font-semibold">Status</th>
                   <th className="py-4 px-4 text-right font-semibold" data-html2canvas-ignore>Action</th>
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
-                  <tr><td colSpan={4} className="text-center py-8 text-neutral-500">Loading assets...</td></tr>
+                  <tr><td colSpan={6} className="text-center py-8 text-neutral-500">Loading assets...</td></tr>
                 ) : assets.length === 0 ? (
-                  <tr><td colSpan={4} className="text-center py-8 text-neutral-500">No assets monitored yet. Add your first domain or IP.</td></tr>
+                  <tr><td colSpan={6} className="text-center py-8 text-neutral-500">No assets monitored yet. Add your first domain or IP.</td></tr>
                 ) : (
                   assets.map((asset) => (
                     <tr key={asset.id} className="border-b border-white/5 hover:bg-white/5 transition-colors">
@@ -440,6 +589,21 @@ export default function ClientDashboard() {
                         <span className="inline-flex items-center px-2 py-1 rounded text-xs font-semibold bg-white/5 text-neutral-300 border border-white/10">
                           {asset.type}
                         </span>
+                      </td>
+                      <td className="py-4 px-4">
+                         <span className="inline-flex py-0.5 px-2 rounded-md bg-white/5 text-[10px] uppercase tracking-wider text-neutral-400 border border-white/10">{asset.type === 'DOMAIN' ? 'Production' : (asset.type === 'IP' ? 'Infrastructure' : 'Key Personnel')}</span>
+                      </td>
+                      <td className="py-4 px-4">
+                        <div className="flex items-center gap-2">
+                           {/* Deterministic mock score based on string length */}
+                           {asset.value.length % 3 === 0 ? (
+                              <><span className="w-2 h-2 rounded-full bg-red-500"></span> <span className="text-red-500 font-bold">14 High</span></>
+                           ) : asset.value.length % 2 === 0 ? (
+                              <><span className="w-2 h-2 rounded-full bg-yellow-500"></span> <span className="text-yellow-500 font-bold">42 Medium</span></>
+                           ) : (
+                              <><span className="w-2 h-2 rounded-full bg-green-500"></span> <span className="text-green-500 font-bold">0 Low</span></>
+                           )}
+                        </div>
                       </td>
                       <td className="py-4 px-4 text-cyan text-xs font-medium flex items-center gap-1.5 mt-2">
                         <span className="w-1.5 h-1.5 rounded-full bg-cyan shadow-[0_0_8px_rgba(0,194,255,0.8)]"></span> Actively Monitored
