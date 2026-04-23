@@ -9,7 +9,7 @@ export function ContactForm() {
   const { t } = useLanguage();
   const MAX_LENGTH = 1000;
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const form = e.target as HTMLFormElement;
 
@@ -22,12 +22,23 @@ export function ContactForm() {
     setContactEmailError('');
 
     const toastId = toast.loading(t('جاري الإرسال...', 'Sending your message...'));
-    setTimeout(() => {
-      toast.success(t('تم الإرسال! سنتواصل معك قريباً.', 'Message sent! We will contact you soon.'), { id: toastId });
-      form.reset();
-      setContactEmail('');
-      setMessage('');
-    }, 1000);
+    try {
+      const res = await fetch('/api/contact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: 'Website Visitor', email: contactEmail, message })
+      });
+      if (res.ok) {
+        toast.success(t('تم الإرسال! سنتواصل معك قريباً.', 'Message sent! We will contact you soon.'), { id: toastId });
+        form.reset();
+        setContactEmail('');
+        setMessage('');
+      } else {
+        throw new Error('Failed to send');
+      }
+    } catch (e) {
+      toast.error(t('حدث خطأ أثناء الإرسال. الرجاء المحاولة لاحقاً', 'Error sending. Please try again later.'), { id: toastId });
+    }
   };
 
   return (
@@ -89,7 +100,7 @@ export function NewsletterForm() {
   const [newsletterEmail, setNewsletterEmail] = useState('');
   const { t } = useLanguage();
 
-  const handleSubscribe = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubscribe = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!newsletterEmail) return;
 
@@ -100,10 +111,21 @@ export function NewsletterForm() {
     }
 
     const toastId = toast.loading(t('جاري الاشتراك...', 'Subscribing...'));
-    setTimeout(() => {
-      toast.success(t('تم الاشتراك في النشرة الإخبارية!', 'Successfully subscribed to newsletter!'), { id: toastId });
-      setNewsletterEmail('');
-    }, 1000);
+    try {
+      const res = await fetch('/api/newsletter', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: newsletterEmail })
+      });
+      if (res.ok) {
+        toast.success(t('تم الاشتراك في النشرة الإخبارية!', 'Successfully subscribed to newsletter!'), { id: toastId });
+        setNewsletterEmail('');
+      } else {
+        throw new Error('Failed');
+      }
+    } catch (e) {
+      toast.error(t('حدث خطأ أثناء الاشتراك.', 'Error subscribing.'), { id: toastId });
+    }
   };
 
   return (

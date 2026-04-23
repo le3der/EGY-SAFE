@@ -4,11 +4,12 @@ import { multiFactor } from 'firebase/auth';
 import { db, auth } from '../lib/firebase';
 import { useAuth, UserRole } from '../context/AuthContext';
 import { logUserAction } from '../lib/audit';
-import { Shield, Users, UserCog, Check, Smartphone, KeyRound, ShieldAlert, FileText, Download, KeySquare, Trash2, Save } from 'lucide-react';
+import { Shield, Users, UserCog, Check, Smartphone, KeyRound, ShieldAlert, FileText, Download, KeySquare, Trash2, Save, Activity, AlertTriangle, Zap, Server } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { fetchWithCsrf } from '../lib/csrf';
 import MfaSetupModal from './MfaSetupModal';
 import RemediationTasks from './RemediationTasks';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, AreaChart, Area } from 'recharts';
 
 interface UserData {
   id: string;
@@ -268,8 +269,142 @@ export default function AdminPanel() {
     );
   }
 
+  const mockActivityData = [
+    { name: 'Mon', activity: 400, alerts: 24 },
+    { name: 'Tue', activity: 300, alerts: 13 },
+    { name: 'Wed', activity: 450, alerts: 58 },
+    { name: 'Thu', activity: 278, alerts: 39 },
+    { name: 'Fri', activity: 189, alerts: 48 },
+    { name: 'Sat', activity: 239, alerts: 38 },
+    { name: 'Sun', activity: 349, alerts: 43 },
+  ];
+
+  const mockThreatData = [
+    { name: 'W1', blocked: 40, critical: 2 },
+    { name: 'W2', blocked: 55, critical: 1 },
+    { name: 'W3', blocked: 80, critical: 0 },
+    { name: 'W4', blocked: 27, critical: 3 },
+  ];
+
   return (
     <div className="p-6 sm:p-10 max-w-5xl mx-auto space-y-12">
+      {/* Dashboard Overview */}
+      <div>
+        <div className="flex items-center gap-3 mb-6">
+          <Activity className="w-8 h-8 text-cyan" />
+          <h2 className="text-2xl font-bold dark:text-white">Admin Dashboard</h2>
+        </div>
+        
+        {/* KPI Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+          <div className="bg-white dark:bg-[#111] border border-black/10 dark:border-white/10 rounded-xl p-5 shadow-sm">
+            <div className="flex justify-between items-start">
+              <div>
+                <p className="text-sm text-neutral-500 font-medium mb-1">Total Users</p>
+                <h3 className="text-3xl font-bold text-black dark:text-white">{users.length}</h3>
+              </div>
+              <div className="p-2 bg-cyan/10 rounded-lg text-cyan">
+                <Users className="w-5 h-5" />
+              </div>
+            </div>
+            <div className="mt-4 text-xs text-green-500 flex items-center gap-1">
+              <span className="font-bold">+12%</span> from last month
+            </div>
+          </div>
+
+          <div className="bg-white dark:bg-[#111] border border-black/10 dark:border-white/10 rounded-xl p-5 shadow-sm">
+            <div className="flex justify-between items-start">
+              <div>
+                <p className="text-sm text-neutral-500 font-medium mb-1">Active Alerts</p>
+                <h3 className="text-3xl font-bold text-black dark:text-white">24</h3>
+              </div>
+              <div className="p-2 bg-red/10 rounded-lg text-red">
+                <AlertTriangle className="w-5 h-5" />
+              </div>
+            </div>
+            <div className="mt-4 text-xs text-red flex items-center gap-1">
+              <span className="font-bold">+4</span> critical threats detected
+            </div>
+          </div>
+
+          <div className="bg-white dark:bg-[#111] border border-black/10 dark:border-white/10 rounded-xl p-5 shadow-sm">
+            <div className="flex justify-between items-start">
+              <div>
+                <p className="text-sm text-neutral-500 font-medium mb-1">Audit Logs</p>
+                <h3 className="text-3xl font-bold text-black dark:text-white">{logs.length}+</h3>
+              </div>
+              <div className="p-2 bg-purple-500/10 rounded-lg text-purple-500">
+                <FileText className="w-5 h-5" />
+              </div>
+            </div>
+            <div className="mt-4 text-xs text-neutral-500">
+              System events captured
+            </div>
+          </div>
+
+          <div className="bg-white dark:bg-[#111] border border-black/10 dark:border-white/10 rounded-xl p-5 shadow-sm">
+            <div className="flex justify-between items-start">
+              <div>
+                <p className="text-sm text-neutral-500 font-medium mb-1">System Health</p>
+                <h3 className="text-3xl font-bold text-black dark:text-white">99.9%</h3>
+              </div>
+              <div className="p-2 bg-green-500/10 rounded-lg text-green-500">
+                <Server className="w-5 h-5" />
+              </div>
+            </div>
+            <div className="mt-4 text-xs text-green-500 flex items-center gap-1">
+              All infrastructure operational
+            </div>
+          </div>
+        </div>
+
+        {/* Charts underneath */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+          {/* Activity Area Chart */}
+          <div className="bg-white dark:bg-[#111] border border-black/10 dark:border-white/10 rounded-xl p-6 shadow-sm">
+            <h3 className="text-lg font-bold text-black dark:text-white mb-6">Traffic & Activity</h3>
+            <div className="h-[250px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={mockActivityData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="colorActivity" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#00E5FF" stopOpacity={0.3}/>
+                      <stop offset="95%" stopColor="#00E5FF" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <XAxis dataKey="name" stroke="#666" fontSize={12} tickLine={false} axisLine={false} />
+                  <YAxis stroke="#666" fontSize={12} tickLine={false} axisLine={false} />
+                  <Tooltip 
+                    contentStyle={{ backgroundColor: '#111', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }}
+                    itemStyle={{ color: '#fff' }}
+                  />
+                  <Area type="monotone" dataKey="activity" stroke="#00E5FF" fillOpacity={1} fill="url(#colorActivity)" strokeWidth={2} />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* Threat Blocked Bar Chart */}
+          <div className="bg-white dark:bg-[#111] border border-black/10 dark:border-white/10 rounded-xl p-6 shadow-sm">
+            <h3 className="text-lg font-bold text-black dark:text-white mb-6">Threat Mitigation</h3>
+            <div className="h-[250px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={mockThreatData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                  <XAxis dataKey="name" stroke="#666" fontSize={12} tickLine={false} axisLine={false} />
+                  <YAxis stroke="#666" fontSize={12} tickLine={false} axisLine={false} />
+                  <Tooltip 
+                    cursor={{ fill: 'rgba(255,255,255,0.05)' }}
+                    contentStyle={{ backgroundColor: '#111', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }}
+                  />
+                  <Bar dataKey="blocked" fill="#00E5FF" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="critical" fill="#FF3366" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* API Integrations Vault */}
       <div>
         <div className="flex items-center gap-3 mb-6">

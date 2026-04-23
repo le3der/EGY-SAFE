@@ -148,13 +148,12 @@ export default function LiveThreatFeed() {
     socket.on('connect', () => {
       console.log('Connected to Threat Feed WebSocket stream');
       setSocketStatus('connected');
-      toast.success('Live connection established', { id: 'socket-status', icon: '⚡' });
+      toast.dismiss('socket-status');
     });
 
     socket.on('disconnect', (reason) => {
       console.warn('Disconnected from stream:', reason);
       setSocketStatus('disconnected');
-      toast.error('Connection lost. Reconnecting...', { id: 'socket-status', duration: Infinity });
     });
 
     socket.on('connect_error', () => {

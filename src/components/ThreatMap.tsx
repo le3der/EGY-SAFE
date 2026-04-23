@@ -45,7 +45,7 @@ const ThreatMap = ({ threats = mockThreats }: { threats?: ThreatEvent[] }) => {
         </div>
       </div>
       
-      <composable-map data-component="map-container" className="w-full h-full">
+      <div data-component="map-container" className="w-full h-full">
         <ComposableMap
           projection="geoMercator"
           projectionConfig={{ scale: 140 }}
@@ -103,7 +103,7 @@ const ThreatMap = ({ threats = mockThreats }: { threats?: ThreatEvent[] }) => {
             </Marker>
           ))}
         </ComposableMap>
-      </composable-map>
+      </div>
     </div>
   );
 };

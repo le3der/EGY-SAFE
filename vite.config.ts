@@ -3,10 +3,20 @@ import react from '@vitejs/plugin-react';
 import path from 'path';
 import {defineConfig, loadEnv} from 'vite';
 
+// A simple plugin to transform index.html
+const htmlPlugin = (env: Record<string, string>) => {
+  return {
+    name: 'html-transform',
+    transformIndexHtml(html: string) {
+      return html.replace(/%VITE_GA_ID%/g, env.VITE_GA_ID || '');
+    },
+  };
+};
+
 export default defineConfig(({mode}) => {
   const env = loadEnv(mode, '.', '');
   return {
-    plugins: [react(), tailwindcss()],
+    plugins: [react(), tailwindcss(), htmlPlugin(env)],
     define: {
       'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),
       'import.meta.env.VITE_GEMINI_API_KEY': JSON.stringify(env.VITE_GEMINI_API_KEY || env.GEMINI_API_KEY),

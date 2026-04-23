@@ -13,6 +13,7 @@ import { getFirestore as getAdminFirestore } from "firebase-admin/firestore";
 import { getAuth as getAdminAuth } from "firebase-admin/auth";
 import axios from "axios";
 import { GoogleGenAI } from "@google/genai";
+import generateSitemap from "./src/lib/sitemap.ts";
 
 try {
   initializeAdmin({
@@ -239,6 +240,90 @@ async function startServer() {
     } // Disable validation logs for these headers
   });
   app.use('/api/', apiLimiter);
+
+  // Stricter limiter for contact and newsletter
+  const formsLimiter = rateLimit({
+    windowMs: 60 * 60 * 1000, // 1 hour
+    max: 20, // Limit each IP to 20 requests per hour
+    message: { error: 'Too many form submissions. Please try again later.' },
+    validate: { trustProxy: false, xForwardedForHeader: false }
+  });
+
+  // Contact API
+  app.post('/api/contact', formsLimiter, async (req, res) => {
+    try {
+      const { name, email, company, message } = req.body;
+      if (!name || !email || !message) {
+        return res.status(400).json({ success: false, error: 'Missing required fields' });
+      }
+
+      console.log(`[CONTACT FORM] Received from ${name} (${email}) - Company: ${company || 'N/A'}`);
+      
+      try {
+        const adminFirestore = getAdminFirestore();
+        await adminFirestore.collection('contacts').add({
+          name,
+          email,
+          company: company || '',
+          message,
+          createdAt: new Date(),
+          status: 'unread'
+        });
+        console.log('[CONTACT FORM] Saved to Firestore.');
+      } catch (e) {
+        console.log('[CONTACT FORM] Firestore Admin not initialized or failed to save. Falling back to console log.');
+      }
+
+      res.status(200).json({ success: true, message: 'Message received successfully.' });
+    } catch (e: any) {
+      console.error('[CONTACT FORM] Error:', e);
+      res.status(500).json({ success: false, error: 'Internal Server Error' });
+    }
+  });
+
+  // Newsletter API
+  app.post('/api/newsletter', formsLimiter, async (req, res) => {
+    try {
+      const { email } = req.body;
+      if (!email) {
+        return res.status(400).json({ success: false, error: 'Missing email' });
+      }
+
+      console.log(`[NEWSLETTER] New subscription: ${email}`);
+      
+      try {
+        const adminFirestore = getAdminFirestore();
+        await adminFirestore.collection('newsletters').add({
+          email,
+          createdAt: new Date(),
+          active: true
+        });
+        console.log('[NEWSLETTER] Saved to Firestore.');
+      } catch (e) {
+        console.log('[NEWSLETTER] Firestore Admin not initialized or failed to save. Falling back to console log.');
+      }
+
+      res.status(200).json({ success: true, message: 'Subscribed successfully.' });
+    } catch (e: any) {
+      console.error('[NEWSLETTER] Error:', e);
+      res.status(500).json({ success: false, error: 'Internal Server Error' });
+    }
+  });
+
+  // Sitemap Generation Route
+  app.get('/sitemap.xml', (req, res) => {
+    res.header('Content-Type', 'application/xml');
+    res.send(generateSitemap());
+  });
+
+  // Robots.txt Generation Route
+  app.get('/robots.txt', (req, res) => {
+    res.type('text/plain');
+    res.send(`User-agent: *
+Allow: /
+
+Sitemap: https://egysafe.com/sitemap.xml`);
+  });
 
   const PORT = process.env.PORT || 3000;
 

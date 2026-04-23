@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef, Suspense } from 'react';
+import { Routes, Route, useNavigate, useLocation, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { ShieldAlert, Network, ScanSearch, Lock, Terminal, Globe, ChevronRight, Activity, AlertTriangle, Database, Shield, Eye, Radar, ShieldCheck, Bug, ShoppingCart, Server, Filter, BellRing, Plus, Zap, Linkedin, Twitter, Send, Check, ArrowUp, Sun, Moon, ChevronLeft, ArrowRight, Share2, LogIn, LogOut, Settings, Mail, X, Menu, Loader2 } from 'lucide-react';
 import DataFlowBackground from './components/DataFlowBackground';
@@ -8,6 +9,16 @@ import { useAuth } from './context/AuthContext';
 import { useLanguage } from './context/LanguageContext';
 import { trackEvent } from './lib/analytics';
 import { ContactForm, NewsletterForm } from './components/Forms';
+import SEO from './components/SEO';
+import PrivacyPolicy from './pages/PrivacyPolicy';
+import TermsOfService from './pages/TermsOfService';
+import ContactPage from './pages/ContactPage';
+import CookiesPolicy from './pages/CookiesPolicy';
+import AboutPage from './pages/AboutPage';
+import BlogPage from './pages/BlogPage';
+import CaseStudiesPage from './pages/CaseStudiesPage';
+import CareersPage from './pages/CareersPage';
+import TrustSignals from './components/TrustSignals';
 
 const whyEgySafeItems = [
   { title: "Comprehensive Coverage", body: "Our monitoring engine covers dark web markets, hacking forums, source code repositories, paste sites, private clouds, Telegram, Discord, Tor sites, and more — leaving no blind spots." },
@@ -137,6 +148,10 @@ const StatCounter = ({ end, prefix = '', suffix = '', duration = 2000, delay = 0
 export default function App() {
   const { user, profile, loading: authLoading, signInWithGoogle, logout } = useAuth();
   const { lang, toggleLang, t, dir } = useLanguage();
+  const location = useLocation();
+  const isLegalPage = ['/privacy', '/terms', '/cookies'].includes(location.pathname);
+  const hideNavigation = isLegalPage;
+
   const [openAccordion, setOpenAccordion] = useState<number | null>(0);
   const [isScrolled, setIsScrolled] = useState(false);
   const [showScrollTop, setShowScrollTop] = useState(false);
@@ -230,6 +245,20 @@ export default function App() {
     window.addEventListener('scroll', handleScroll);
     handleScroll();
 
+    // Register Service Worker for PWA
+    if ('serviceWorker' in navigator && import.meta.env.PROD) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js').then(
+          (registration) => {
+            console.log('ServiceWorker registration successful with scope: ', registration.scope);
+          },
+          (err) => {
+            console.log('ServiceWorker registration failed: ', err);
+          }
+        );
+      });
+    }
+
     // Intersection Observer for timeline steps
     const stepObserver = new IntersectionObserver((entries) => {
       entries.forEach(entry => {
@@ -269,6 +298,26 @@ export default function App() {
     };
   }, []);
 
+  // Handle Hash routing smoothly
+  useEffect(() => {
+    if (location.hash) {
+      // If we are not on the home page, redirect to home page with hash
+      if (location.pathname !== '/') {
+         // The Link will actually handle the navigation, so we might just need to scroll when we ARE on home
+         return;
+      }
+      setTimeout(() => {
+        const id = location.hash.replace('#', '');
+        const element = document.getElementById(id);
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth' });
+        }
+      }, 100);
+    } else {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }, [location]);
+
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -291,117 +340,119 @@ export default function App() {
       </a>
 
       {/* Navigation */}
-      <nav className={`fixed top-0 w-full z-50 transition-all duration-300 ${isScrolled ? 'bg-black/80 backdrop-blur-xl border-b border-white/5 py-4' : 'bg-transparent py-6'}`}>
-        <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
-          <div className="flex items-center gap-3 cursor-pointer group" onClick={scrollToTop}>
-            <div className="relative flex items-center justify-center w-10 h-10 group-hover:scale-110 transition-transform duration-300">
-              <ScanSearch className="w-9 h-9 text-cyan absolute opacity-90" strokeWidth={1.5} />
-              <div className="w-2 h-2 rounded-full bg-cyan absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 animate-pulse" />
+      {!hideNavigation && (
+        <nav className={`fixed top-0 w-full z-50 transition-all duration-300 ${isScrolled ? 'bg-black/80 backdrop-blur-xl border-b border-white/5 py-4' : 'bg-transparent py-6'}`}>
+          <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
+            <div className="flex items-center gap-3 cursor-pointer group" onClick={scrollToTop}>
+              <div className="relative flex items-center justify-center w-10 h-10 group-hover:scale-110 transition-transform duration-300">
+                <ScanSearch className="w-9 h-9 text-cyan absolute opacity-90" strokeWidth={1.5} />
+                <div className="w-2 h-2 rounded-full bg-cyan absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 animate-pulse" />
+              </div>
+              <span className="text-2xl font-bold tracking-tight text-white group-hover:text-cyan transition-colors duration-300">
+                EgySafe
+              </span>
             </div>
-            <span className="text-2xl font-bold tracking-tight text-white group-hover:text-cyan transition-colors duration-300">
-              EgySafe
-            </span>
-          </div>
-          
-          <div className="hidden md:flex items-center gap-8 text-sm font-medium text-white/80">
-            <a href="#services" className="hover:text-cyan focus:outline-none focus:text-cyan transition-colors">{t('الخدمات', 'Services')}</a>
-            <a href="#how-it-works" className="hover:text-cyan focus:outline-none focus:text-cyan transition-colors">{t('كيف نعمل', 'How It Works')}</a>
-            <a href="#why" className="hover:text-cyan focus:outline-none focus:text-cyan transition-colors">{t('لماذا Egy Safe', 'Why Egy Safe')}</a>
-            <a href="#pricing" className="hover:text-cyan focus:outline-none focus:text-cyan transition-colors">{t('الأسعار', 'Pricing')}</a>
-            <a href="#contact" className="hover:text-cyan focus:outline-none focus:text-cyan transition-colors">{t('اتصل بنا', 'Contact')}</a>
-          </div>
-
-          <div className="flex items-center gap-4">
-            <button
-              onClick={toggleLang}
-              className="text-xs font-bold text-neutral-400 hover:text-cyan focus:outline-none px-2 py-1 uppercase tracking-widest transition-colors"
-            >
-              {lang === 'en' ? 'عربي' : 'EN'}
-            </button>
             
-            {!authLoading && user ? (
-              <div className="flex items-center gap-2">
-                {profile?.role === 'Admin' && (
-                  <a href="#admin" className="p-2 text-neutral-400 hover:text-cyan transition-colors" title="Admin Panel">
-                    <Settings className="w-5 h-5" />
-                  </a>
-                )}
-                {profile?.role === 'Viewer' && (
-                  <a href="#dashboard" className="p-2 text-neutral-400 hover:text-cyan transition-colors" title="Client Dashboard">
-                    <Activity className="w-5 h-5" />
-                  </a>
-                )}
-                <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full border border-white/10 bg-white/5 text-xs font-medium text-white">
-                  <span className="w-2 h-2 rounded-full bg-green-500"></span>
-                  <span className="max-w-[100px] truncate">{user.email}</span>
-                </div>
-                <button 
-                  onClick={logout} 
-                  className="p-2 text-neutral-500 hover:text-red transition-colors"
-                  title="Logout"
-                >
-                  <LogOut className="w-5 h-5" />
-                </button>
-              </div>
-            ) : (
-              <button 
-                onClick={() => setIsLoginModalOpen(true)} 
-                className="flex items-center gap-2 text-sm font-medium hover:text-cyan transition-colors text-white"
+            <div className="hidden md:flex items-center gap-8 text-sm font-medium text-white/80">
+              <Link to="/#services" className="hover:text-cyan focus:outline-none focus:text-cyan transition-colors">{t('الخدمات', 'Services')}</Link>
+              <Link to="/#how-it-works" className="hover:text-cyan focus:outline-none focus:text-cyan transition-colors">{t('كيف نعمل', 'How It Works')}</Link>
+              <Link to="/#why" className="hover:text-cyan focus:outline-none focus:text-cyan transition-colors">{t('لماذا Egy Safe', 'Why Egy Safe')}</Link>
+              <Link to="/#pricing" className="hover:text-cyan focus:outline-none focus:text-cyan transition-colors">{t('الأسعار', 'Pricing')}</Link>
+              <Link to="/contact" className="hover:text-cyan focus:outline-none focus:text-cyan transition-colors">{t('اتصل بنا', 'Contact')}</Link>
+            </div>
+  
+            <div className="flex items-center gap-4">
+              <button
+                onClick={toggleLang}
+                className="text-xs font-bold text-neutral-400 hover:text-cyan focus:outline-none px-2 py-1 uppercase tracking-widest transition-colors"
               >
-                <LogIn className="w-4 h-4" />
-                <span className="hidden sm:inline">Sign In</span>
+                {lang === 'en' ? 'عربي' : 'EN'}
               </button>
-            )}
-
-            <button 
-              onClick={() => {
-                trackEvent('demo_requested', { source: 'Navbar' });
-                setIsConsultationModalOpen(true);
-              }}
-              className="bg-cyan hover:bg-cyan/90 text-black px-6 py-2.5 rounded-md font-semibold text-sm transition-all duration-300 hover:scale-105 active:scale-95 glow-cyan hidden md:block focus:outline-none focus:ring-2 focus:ring-cyan focus:ring-offset-2 focus:ring-offset-black"
-            >
-              Request Demo
-            </button>
-
-            {/* Mobile Menu Toggle */}
-            <button
-              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className="md:hidden p-2 text-white hover:text-cyan transition-colors"
-            >
-              {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-            </button>
-          </div>
-        </div>
-
-        {/* Mobile Dropdown Menu */}
-        <AnimatePresence>
-          {isMobileMenuOpen && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              className="md:hidden bg-black/95 backdrop-blur-xl border-b border-white/10 overflow-hidden"
-            >
-              <div className="flex flex-col px-6 py-4 space-y-4 text-center">
-                <a onClick={() => setIsMobileMenuOpen(false)} href="#services" className="text-white hover:text-cyan py-2 transition-colors font-medium">Services</a>
-                <a onClick={() => setIsMobileMenuOpen(false)} href="#how-it-works" className="text-white hover:text-cyan py-2 transition-colors font-medium">How It Works</a>
-                <a onClick={() => setIsMobileMenuOpen(false)} href="#why" className="text-white hover:text-cyan py-2 transition-colors font-medium">Why Egy Safe</a>
-                <a onClick={() => setIsMobileMenuOpen(false)} href="#pricing" className="text-white hover:text-cyan py-2 transition-colors font-medium">Pricing</a>
-                <a onClick={() => setIsMobileMenuOpen(false)} href="#contact" className="text-white hover:text-cyan py-2 transition-colors font-medium">Contact</a>
+              
+              {!authLoading && user ? (
+                <div className="flex items-center gap-2">
+                  {profile?.role === 'Admin' && (
+                    <a href="#admin" className="p-2 text-neutral-400 hover:text-cyan transition-colors" title="Admin Panel">
+                      <Settings className="w-5 h-5" />
+                    </a>
+                  )}
+                  {profile?.role === 'Viewer' && (
+                    <a href="#dashboard" className="p-2 text-neutral-400 hover:text-cyan transition-colors" title="Client Dashboard">
+                      <Activity className="w-5 h-5" />
+                    </a>
+                  )}
+                  <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full border border-white/10 bg-white/5 text-xs font-medium text-white">
+                    <span className="w-2 h-2 rounded-full bg-green-500"></span>
+                    <span className="max-w-[100px] truncate">{user.email}</span>
+                  </div>
+                  <button 
+                    onClick={logout} 
+                    className="p-2 text-neutral-500 hover:text-red transition-colors"
+                    title="Logout"
+                  >
+                    <LogOut className="w-5 h-5" />
+                  </button>
+                </div>
+              ) : (
                 <button 
-                  onClick={() => {
-                    setIsMobileMenuOpen(false);
-                    setIsConsultationModalOpen(true);
-                  }}
-                  className="bg-cyan hover:bg-cyan/90 text-black px-6 py-3 rounded-md font-semibold transition-all duration-300 w-full"
+                  onClick={() => setIsLoginModalOpen(true)} 
+                  className="flex items-center gap-2 text-sm font-medium hover:text-cyan transition-colors text-white"
                 >
-                  Request Demo
+                  <LogIn className="w-4 h-4" />
+                  <span className="hidden sm:inline">Sign In</span>
                 </button>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </nav>
+              )}
+  
+              <button 
+                onClick={() => {
+                  trackEvent('demo_requested', { source: 'Navbar' });
+                  setIsConsultationModalOpen(true);
+                }}
+                className="bg-cyan hover:bg-cyan/90 text-black px-6 py-2.5 rounded-md font-semibold text-sm transition-all duration-300 hover:scale-105 active:scale-95 glow-cyan hidden md:block focus:outline-none focus:ring-2 focus:ring-cyan focus:ring-offset-2 focus:ring-offset-black"
+              >
+                Request Demo
+              </button>
+  
+              {/* Mobile Menu Toggle */}
+              <button
+                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                className="md:hidden p-2 text-white hover:text-cyan transition-colors"
+              >
+                {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+              </button>
+            </div>
+          </div>
+  
+          {/* Mobile Dropdown Menu */}
+          <AnimatePresence>
+            {isMobileMenuOpen && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                className="md:hidden bg-black/95 backdrop-blur-xl border-b border-white/10 overflow-hidden"
+              >
+                <div className="flex flex-col px-6 py-4 space-y-4 text-center">
+                  <Link onClick={() => setIsMobileMenuOpen(false)} to="/#services" className="text-white hover:text-cyan py-2 transition-colors font-medium">{t('الخدمات', 'Services')}</Link>
+                  <Link onClick={() => setIsMobileMenuOpen(false)} to="/#how-it-works" className="text-white hover:text-cyan py-2 transition-colors font-medium">{t('كيف نعمل', 'How It Works')}</Link>
+                  <Link onClick={() => setIsMobileMenuOpen(false)} to="/#why" className="text-white hover:text-cyan py-2 transition-colors font-medium">{t('لماذا Egy Safe', 'Why Egy Safe')}</Link>
+                  <Link onClick={() => setIsMobileMenuOpen(false)} to="/#pricing" className="text-white hover:text-cyan py-2 transition-colors font-medium">{t('الأسعار', 'Pricing')}</Link>
+                  <Link onClick={() => setIsMobileMenuOpen(false)} to="/contact" className="text-white hover:text-cyan py-2 transition-colors font-medium">{t('اتصل بنا', 'Contact')}</Link>
+                  <button 
+                    onClick={() => {
+                      setIsMobileMenuOpen(false);
+                      setIsConsultationModalOpen(true);
+                    }}
+                    className="bg-cyan hover:bg-cyan/90 text-black px-6 py-3 rounded-md font-semibold transition-all duration-300 w-full"
+                  >
+                    Request Demo
+                  </button>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </nav>
+      )}
 
       {/* Login Modal */}
       <Suspense fallback={<SkeletonLoader type="modal" />}>
@@ -415,7 +466,13 @@ export default function App() {
          </Suspense>
       </div>
 
-      <main id="main-content" className="relative z-10 w-full overflow-x-clip">
+      <Routes>
+        <Route path="/" element={
+          <main id="main-content" className="relative z-10 w-full overflow-x-clip">
+            <SEO 
+              title={t('الرئيسية', 'Home')}
+              description={t('نحمي الشركات المصرية والشرق أوسطية من التهديدات غير المرئية.', 'Protecting Egyptian and MENA businesses from the threats they can\'t see.')}
+            />
         {/* Hero Section */}
         <section className="relative pt-32 pb-20 lg:pt-48 lg:pb-32 min-h-[90vh] flex flex-col justify-center overflow-hidden bg-transparent text-white">
         
@@ -478,35 +535,10 @@ export default function App() {
           </motion.div>
         </div>
 
-        {/* Global Trusted By Section - Showcasing Lazy Loading */}
-        <div className="w-full relative z-10 pt-16 mt-8 border-t border-black/5 dark:border-white/5">
-          <div className="max-w-7xl mx-auto px-6 text-center">
-            <p className="text-xs font-bold tracking-widest uppercase text-neutral-500 mb-8">Trusted by SecOps Teams at Forward-Thinking Enterprise</p>
-            <div className="flex flex-wrap justify-center items-center gap-8 md:gap-16 lg:gap-24 opacity-60 grayscale hover:grayscale-0 transition-all duration-700">
-              <div className="flex items-center gap-2 transition-all hover:text-cyan cursor-default">
-                <Globe className="w-6 h-6 text-neutral-400" />
-                <span className="text-sm font-bold tracking-widest text-neutral-400 uppercase">Globex AI</span>
-              </div>
-              <div className="flex items-center gap-2 transition-all hover:text-cyan cursor-default">
-                <Lock className="w-6 h-6 text-neutral-400" />
-                <span className="text-sm font-bold tracking-widest text-neutral-400 uppercase">FinCorp</span>
-              </div>
-              <div className="flex items-center gap-2 transition-all hover:text-cyan cursor-default">
-                <Shield className="w-6 h-6 text-neutral-400" />
-                <span className="text-sm font-bold tracking-widest text-neutral-400 uppercase">HealthShield</span>
-              </div>
-              <div className="flex items-center gap-2 transition-all hover:text-cyan cursor-default hidden md:flex">
-                <Activity className="w-6 h-6 text-neutral-400" />
-                <span className="text-sm font-bold tracking-widest text-neutral-400 uppercase">Nexus Retail</span>
-              </div>
-              <div className="flex items-center gap-2 transition-all hover:text-cyan cursor-default hidden lg:flex">
-                <Database className="w-6 h-6 text-neutral-400" />
-                <span className="text-sm font-bold tracking-widest text-neutral-400 uppercase">CloudNet</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
+        {/* Trust Signals replacing the old logo banner */}
+      <Suspense fallback={<SkeletonLoader type="panel" />}>
+        <TrustSignals />
+      </Suspense>
 
       {/* Ticker Bar */}
       <div className="w-full overflow-hidden border-y border-white/5 bg-black/40 backdrop-blur-md py-4 flex whitespace-nowrap relative z-20 mask-edges" aria-hidden="true">
@@ -547,37 +579,7 @@ export default function App() {
       <Suspense fallback={<SkeletonLoader type="panel" />}>
         <EgyptDarkWebScanner />
       </Suspense>
-
-      {/* Trusted By Section */}
-      <div className="border-y border-white/5 bg-transparent py-10 relative z-10 overflow-hidden">
-        <div className="max-w-7xl mx-auto px-6">
-          <p className="text-center text-[10px] font-bold tracking-[0.2em] text-neutral-400 uppercase mb-8">
-            Protecting the infrastructure of industry leaders
-          </p>
-          <div className="flex flex-wrap justify-center items-center gap-8 md:gap-16 lg:gap-24 opacity-60 grayscale hover:grayscale-0 transition-all duration-700">
-            <div className="flex items-center gap-2 transition-all hover:text-cyan cursor-default">
-              <Globe className="w-5 h-5 text-neutral-400 inherit-text" />
-              <span className="text-sm font-bold tracking-widest text-neutral-400 uppercase inherit-text">Global Tech</span>
-            </div>
-            <div className="flex items-center gap-2 transition-all hover:text-cyan cursor-default">
-              <Lock className="w-5 h-5 text-neutral-400 inherit-text" />
-              <span className="text-sm font-bold tracking-widest text-neutral-400 uppercase inherit-text">Fintech</span>
-            </div>
-            <div className="flex items-center gap-2 transition-all hover:text-cyan cursor-default">
-              <Shield className="w-5 h-5 text-neutral-400 inherit-text" />
-              <span className="text-sm font-bold tracking-widest text-neutral-400 uppercase inherit-text">Healthcare</span>
-            </div>
-            <div className="flex items-center gap-2 transition-all hover:text-cyan cursor-default hidden md:flex">
-              <Activity className="w-5 h-5 text-neutral-400 inherit-text" />
-              <span className="text-sm font-bold tracking-widest text-neutral-400 uppercase inherit-text">E-Commerce</span>
-            </div>
-            <div className="flex items-center gap-2 transition-all hover:text-cyan cursor-default hidden lg:flex">
-              <Database className="w-5 h-5 text-neutral-400 inherit-text" />
-              <span className="text-sm font-bold tracking-widest text-neutral-400 uppercase inherit-text">Telecom</span>
-            </div>
-          </div>
-        </div>
-      </div>
+    </section>
 
       {/* Services Section */}
       <section id="services" className="py-24 bg-transparent relative fade-in-section overflow-hidden">
@@ -1241,24 +1243,35 @@ export default function App() {
           </div>
         </section>
       )}
-      </main>
+          </main>
+        } />
+        <Route path="/privacy" element={<PrivacyPolicy />} />
+        <Route path="/terms" element={<TermsOfService />} />
+        <Route path="/cookies" element={<CookiesPolicy />} />
+        <Route path="/about" element={<AboutPage />} />
+        <Route path="/blog" element={<BlogPage />} />
+        <Route path="/case-studies" element={<CaseStudiesPage />} />
+        <Route path="/careers" element={<CareersPage />} />
+        <Route path="/contact" element={<ContactPage />} />
+      </Routes>
 
       {/* Footer */}
-      <footer id="contact" className="relative z-20 bg-transparent pt-20 pb-8 text-white">
-        <div className="max-w-7xl mx-auto px-6">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-12">
-            {/* Column 1 - Brand */}
-            <div className="space-y-6 lg:col-span-4">
-              <div className="flex items-center gap-2">
-                <ShieldAlert className="w-6 h-6 text-cyan" />
-                <span className="text-xl font-bold tracking-tight text-white">
-                  EGY <span className="text-cyan">SAFE</span>
-                </span>
-              </div>
-              <p className="text-neutral-400 text-sm leading-relaxed">
-                {t('نحمي الشركات المصرية والشرق أوسطية من التهديدات غير المرئية.', "Protecting Egyptian and MENA businesses from the threats they can't see.")}
-              </p>
-              <div className="flex gap-5 mt-4">
+      {!hideNavigation && (
+        <footer id="contact" className="relative z-20 bg-transparent pt-20 pb-8 text-white">
+          <div className="max-w-7xl mx-auto px-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-12">
+              {/* Column 1 - Brand */}
+              <div className="space-y-6 lg:col-span-4">
+                <div className="flex items-center gap-2">
+                  <ShieldAlert className="w-6 h-6 text-cyan" />
+                  <span className="text-xl font-bold tracking-tight text-white">
+                    EGY <span className="text-cyan">SAFE</span>
+                  </span>
+                </div>
+                <p className="text-neutral-400 text-sm leading-relaxed">
+                  {t('نحمي الشركات المصرية والشرق أوسطية من التهديدات غير المرئية.', "Protecting Egyptian and MENA businesses from the threats they can't see.")}
+                </p>
+                <div className="flex gap-5 mt-4">
                 {/* LinkedIn 2026 Modern SVG */}
                 <a href="https://linkedin.com/company/egysafe" target="_blank" rel="noreferrer" className="text-neutral-400 hover:text-[#0077B5] focus:outline-none transition-colors" aria-label="LinkedIn">
                   <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -1284,13 +1297,13 @@ export default function App() {
             <div className="lg:col-span-2">
               <h4 className="font-bold mb-6 text-white">{t('الخدمات', 'Services')}</h4>
               <ul className="space-y-3 text-sm text-neutral-400">
-                <li><a href="#" className="hover:text-cyan focus:outline-none focus:text-cyan transition-colors">{t('مراقبة الدارك ويب', 'Dark Web Monitoring')}</a></li>
-                <li><a href="#" className="hover:text-cyan focus:outline-none focus:text-cyan transition-colors">{t('اكتشاف سطح الهجوم', 'Attack Surface Discovery')}</a></li>
-                <li><a href="#" className="hover:text-cyan focus:outline-none focus:text-cyan transition-colors">{t('التقييم الأمني', 'Security Assessment')}</a></li>
+                <li><Link to="/#services" className="hover:text-cyan focus:outline-none focus:text-cyan transition-colors">{t('مراقبة الدارك ويب', 'Dark Web Monitoring')}</Link></li>
+                <li><Link to="/#services" className="hover:text-cyan focus:outline-none focus:text-cyan transition-colors">{t('اكتشاف سطح الهجوم', 'Attack Surface Discovery')}</Link></li>
+                <li><Link to="/#services" className="hover:text-cyan focus:outline-none focus:text-cyan transition-colors">{t('التقييم الأمني', 'Security Assessment')}</Link></li>
                 {/* Specific colored services as per the screenshot requirement */}
-                <li><a href="#" className="text-cyan hover:text-cyan/80 focus:outline-none transition-colors">{t('الفريق الأحمر ومحاكاة الخصوم', 'Red Teaming & Adversary Simulation')}</a></li>
-                <li><a href="#" className="text-cyan hover:text-cyan/80 focus:outline-none transition-colors">{t('اختبار اختراق الشبكات', 'Network Penetration Testing')}</a></li>
-                <li><a href="#" className="text-cyan hover:text-cyan/80 focus:outline-none transition-colors">{t('اختبار تطبيقات الويب والجوال', 'Web & Mobile App Testing')}</a></li>
+                <li><Link to="/#services" className="text-cyan hover:text-cyan/80 focus:outline-none transition-colors">{t('الفريق الأحمر ومحاكاة الخصوم', 'Red Teaming & Adversary Simulation')}</Link></li>
+                <li><Link to="/#services" className="text-cyan hover:text-cyan/80 focus:outline-none transition-colors">{t('اختبار اختراق الشبكات', 'Network Penetration Testing')}</Link></li>
+                <li><Link to="/#services" className="text-cyan hover:text-cyan/80 focus:outline-none transition-colors">{t('اختبار تطبيقات الويب والجوال', 'Web & Mobile App Testing')}</Link></li>
               </ul>
             </div>
 
@@ -1298,12 +1311,12 @@ export default function App() {
             <div className="lg:col-span-2">
               <h4 className="font-bold mb-6 text-white">{t('الشركة', 'Company')}</h4>
               <ul className="space-y-3 text-sm text-neutral-400">
-                <li><a href="#" className="hover:text-cyan focus:outline-none focus:text-cyan transition-colors">{t('معلومات عنا', 'About Us')}</a></li>
-                <li><a href="#" className="hover:text-cyan focus:outline-none focus:text-cyan transition-colors">{t('كيف نعمل', 'How It Works')}</a></li>
-                <li><a href="#" className="hover:text-cyan focus:outline-none focus:text-cyan transition-colors">{t('دراسات الحالة', 'Case Studies')}</a></li>
-                <li><a href="#" className="hover:text-cyan focus:outline-none focus:text-cyan transition-colors">{t('المدونة', 'Blog')}</a></li>
-                <li><a href="#" className="hover:text-cyan focus:outline-none focus:text-cyan transition-colors">{t('الوظائف', 'Careers')}</a></li>
-                <li><a href="#contact" className="hover:text-cyan focus:outline-none focus:text-cyan transition-colors">{t('اتصل بنا', 'Contact')}</a></li>
+                <li><Link to="/about" className="hover:text-cyan focus:outline-none focus:text-cyan transition-colors">{t('معلومات عنا', 'About Us')}</Link></li>
+                <li><Link to="/#how-it-works" className="hover:text-cyan focus:outline-none focus:text-cyan transition-colors">{t('كيف نعمل', 'How It Works')}</Link></li>
+                <li><Link to="/case-studies" className="hover:text-cyan focus:outline-none focus:text-cyan transition-colors">{t('دراسات الحالة', 'Case Studies')}</Link></li>
+                <li><Link to="/blog" className="hover:text-cyan focus:outline-none focus:text-cyan transition-colors">{t('المدونة', 'Blog')}</Link></li>
+                <li><Link to="/careers" className="hover:text-cyan focus:outline-none focus:text-cyan transition-colors">{t('الوظائف', 'Careers')}</Link></li>
+                <li><Link to="/contact" className="hover:text-cyan focus:outline-none focus:text-cyan transition-colors">{t('اتصل بنا', 'Contact')}</Link></li>
               </ul>
             </div>
 
@@ -1335,12 +1348,14 @@ export default function App() {
           <div className="border-t border-white/5 mt-16 pt-8 flex flex-col md:flex-row justify-between items-center gap-4 text-sm text-neutral-400">
             <div>© 2025 Egy Safe. {t('جميع الحقوق محفوظة.', 'All rights reserved.')}</div>
             <div className="flex gap-6">
-              <a href="#" className="hover:text-white focus:outline-none focus:text-white transition-colors">{t('سياسة الخصوصية', 'Privacy Policy')}</a>
-              <a href="#" className="hover:text-white focus:outline-none focus:text-white transition-colors">{t('شروط الخدمة', 'Terms of Service')}</a>
+              <Link to="/privacy" className="hover:text-white focus:outline-none focus:text-white transition-colors">{t('سياسة الخصوصية', 'Privacy Policy')}</Link>
+              <Link to="/terms" className="hover:text-white focus:outline-none focus:text-white transition-colors">{t('شروط الخدمة', 'Terms of Service')}</Link>
+              <Link to="/cookies" className="hover:text-white focus:outline-none focus:text-white transition-colors">{t('سياسة الكوكيز', 'Cookies Policy')}</Link>
             </div>
           </div>
         </div>
       </footer>
+      )}
 
       {/* Scroll to Top Button */}
       <button
