@@ -602,6 +602,33 @@ Sitemap: https://egysafe.com/sitemap.xml`);
     }
   });
 
+  app.post("/api/admin/users/:userId/unenroll-mfa", verifyFirebaseToken, async (req, res) => {
+    try {
+      const callerId = (req as any).user.uid;
+      const targetUserId = req.params.userId;
+      
+      if (!adminDb) {
+        return res.status(500).json({ error: "Firebase admin DB not fully configured" });
+      }
+
+      const callerDoc = await adminDb.collection("users").doc(callerId).get();
+      if (!callerDoc.exists || callerDoc.data()?.role !== 'Admin') {
+        return res.status(403).json({ error: "Forbidden: Admins only" });
+      }
+
+      await getAdminAuth().updateUser(targetUserId, {
+        multiFactor: {
+          enrolledFactors: null // removes all MFA
+        }
+      });
+
+      res.json({ success: true, message: "MFA disabled for the user." });
+    } catch (e: any) {
+      console.error("Unenroll MFA Error:", e);
+      res.status(500).json({ error: "Failed to unenroll MFA: " + e.message });
+    }
+  });
+
   // Example internal integration endpoint showing how the app safely consumes the vaulted keys
   // It decrypts the API key strictly on the server and uses it to make an outbound request, 
   // never exposing the raw key to the frontend client.

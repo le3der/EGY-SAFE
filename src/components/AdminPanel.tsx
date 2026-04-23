@@ -234,6 +234,36 @@ export default function AdminPanel() {
     }
   };
 
+  const handleResetUserMFA = async (userId: string, userEmail: string) => {
+    if (!user) return;
+    if (profile?.role !== 'Admin') {
+      toast.error('Unauthorized: Admin access required');
+      return;
+    }
+
+    if (!window.confirm(`Are you sure you want to completely remove MFA security for ${userEmail}? This is highly sensitive.`)) {
+      return;
+    }
+
+    try {
+      const idToken = await user.getIdToken();
+      const res = await fetchWithCsrf(`/api/admin/users/${userId}/unenroll-mfa`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${idToken}` }
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success(`MFA security removed for ${userEmail}`);
+        await logUserAction('User MFA Reset', `Admin forcefully removed MFA methods for user ${userEmail}`);
+        fetchLogs();
+      } else {
+        throw new Error(data.error || 'Failed to remove MFA');
+      }
+    } catch (error: any) {
+      toast.error('Failed to remove MFA: ' + error.message);
+    }
+  };
+
   const handleUnenrollMfa = async (uid: string) => {
     if (!user) return;
     if (profile?.role !== 'Admin') {
@@ -472,9 +502,9 @@ export default function AdminPanel() {
         
         <div className="bg-white dark:bg-[#0A0A0A] border border-black/10 dark:border-white/10 rounded-2xl p-6 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div>
-            <h3 className="text-lg font-bold text-black dark:text-white mb-2">Two-Factor Authentication (2FA)</h3>
+            <h3 className="text-lg font-bold text-black dark:text-white mb-2">Multi-Factor Authentication (MFA)</h3>
             <p className="text-sm text-neutral-600 dark:text-neutral-400 max-w-xl">
-              Add an extra layer of security to your admin account. Manage your authenticator app settings, view enrolled devices, and enforce strict login requirements.
+              MFA is a critical security control that requires a secondary verification step using an authenticator app. Enabling MFA significantly reduces the risk of unauthorized access due to compromised passwords. As an administrator, your account is a high-value target; we strongly advise maintaining active MFA enrollment.
             </p>
           </div>
 
@@ -526,7 +556,15 @@ export default function AdminPanel() {
                         {userItem.role}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-right">
+                    <td className="px-6 py-4 text-right flex items-center justify-end gap-3">
+                      <button
+                        onClick={() => handleResetUserMFA(userItem.id, userItem.email)}
+                        disabled={profile?.email === userItem.email}
+                        className="text-xs bg-red/10 text-red px-3 py-1.5 rounded-lg hover:bg-red/20 font-medium transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                        title="Remove MFA for this user"
+                      >
+                        Reset MFA
+                      </button>
                       <select
                         value={userItem.role}
                         onChange={(e) => handleRoleChangeFix(userItem.id, e.target.value as UserRole)}
