@@ -18,6 +18,7 @@ import AboutPage from './pages/AboutPage';
 import BlogPage from './pages/BlogPage';
 import CaseStudiesPage from './pages/CaseStudiesPage';
 import CareersPage from './pages/CareersPage';
+import PersonalScanPage from './pages/PersonalScanPage';
 import TrustSignals from './components/TrustSignals';
 
 const whyEgySafeItems = [
@@ -358,6 +359,7 @@ export default function App() {
               <Link to="/#how-it-works" className="hover:text-cyan focus:outline-none focus:text-cyan transition-colors">{t('كيف نعمل', 'How It Works')}</Link>
               <Link to="/#why" className="hover:text-cyan focus:outline-none focus:text-cyan transition-colors">{t('لماذا Egy Safe', 'Why Egy Safe')}</Link>
               <Link to="/#pricing" className="hover:text-cyan focus:outline-none focus:text-cyan transition-colors">{t('الأسعار', 'Pricing')}</Link>
+              <Link to="/personal-scan" className="hover:text-cyan focus:outline-none focus:text-cyan transition-colors">{t('فحص شخصي', 'Personal Scan')}</Link>
               <Link to="/contact" className="hover:text-cyan focus:outline-none focus:text-cyan transition-colors">{t('اتصل بنا', 'Contact')}</Link>
             </div>
   
@@ -437,6 +439,7 @@ export default function App() {
                   <Link onClick={() => setIsMobileMenuOpen(false)} to="/#how-it-works" className="text-white hover:text-cyan py-2 transition-colors font-medium">{t('كيف نعمل', 'How It Works')}</Link>
                   <Link onClick={() => setIsMobileMenuOpen(false)} to="/#why" className="text-white hover:text-cyan py-2 transition-colors font-medium">{t('لماذا Egy Safe', 'Why Egy Safe')}</Link>
                   <Link onClick={() => setIsMobileMenuOpen(false)} to="/#pricing" className="text-white hover:text-cyan py-2 transition-colors font-medium">{t('الأسعار', 'Pricing')}</Link>
+                  <Link onClick={() => setIsMobileMenuOpen(false)} to="/personal-scan" className="text-white hover:text-cyan py-2 transition-colors font-medium">{t('فحص شخصي', 'Personal Scan')}</Link>
                   <Link onClick={() => setIsMobileMenuOpen(false)} to="/contact" className="text-white hover:text-cyan py-2 transition-colors font-medium">{t('اتصل بنا', 'Contact')}</Link>
                   <button 
                     onClick={() => {
@@ -1252,6 +1255,7 @@ export default function App() {
         <Route path="/blog" element={<BlogPage />} />
         <Route path="/case-studies" element={<CaseStudiesPage />} />
         <Route path="/careers" element={<CareersPage />} />
+        <Route path="/personal-scan" element={<PersonalScanPage />} />
         <Route path="/contact" element={<ContactPage />} />
       </Routes>
 
@@ -1316,6 +1320,7 @@ export default function App() {
                 <li><Link to="/case-studies" className="hover:text-cyan focus:outline-none focus:text-cyan transition-colors">{t('دراسات الحالة', 'Case Studies')}</Link></li>
                 <li><Link to="/blog" className="hover:text-cyan focus:outline-none focus:text-cyan transition-colors">{t('المدونة', 'Blog')}</Link></li>
                 <li><Link to="/careers" className="hover:text-cyan focus:outline-none focus:text-cyan transition-colors">{t('الوظائف', 'Careers')}</Link></li>
+                <li><Link to="/personal-scan" className="hover:text-cyan focus:outline-none focus:text-cyan transition-colors">{t('فحص البيانات الشخصية', 'Personal Data Scan')}</Link></li>
                 <li><Link to="/contact" className="hover:text-cyan focus:outline-none focus:text-cyan transition-colors">{t('اتصل بنا', 'Contact')}</Link></li>
               </ul>
             </div>
