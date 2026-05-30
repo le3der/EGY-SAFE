@@ -486,7 +486,9 @@ Allow: /
 Sitemap: https://egysafe.com/sitemap.xml`);
   });
 
-  const PORT = process.env.PORT || 3000;
+  // Honor the hosting platform's injected PORT (Replit, Vercel, etc.).
+  // Fall back to 8080, which avoids colliding with the local preview proxy.
+  const PORT = process.env.PORT || 8080;
 
   // Socket.IO Threat Emission Logic
   io.on('connection', (socket) => {
