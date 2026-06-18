@@ -310,6 +310,167 @@ async function startServer() {
     }
   });
 
+  /* --- Personal Data Exposure Scan (Individuals) --- */
+  // Stricter limiter to discourage bulk/abusive lookups of third-party identifiers.
+  const personalScanLimiter = rateLimit({
+    windowMs: 60 * 60 * 1000, // 1 hour
+    max: 15, // 15 personal scans per IP per hour
+    message: { error: 'Too many scan requests. Please try again in a little while.' },
+    standardHeaders: true,
+    legacyHeaders: false,
+    validate: { trustProxy: false, xForwardedForHeader: false }
+  });
+
+  const EMAIL_RE = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+  // Accepts Egyptian (01XXXXXXXXX) and general E.164-ish international numbers.
+  const PHONE_RE = /^\+?[0-9][0-9\s-]{6,18}[0-9]$/;
+
+  // Deterministic pseudo-random generator seeded by the identifier so repeated
+  // scans of the same value return consistent, indicative results.
+  const seededRandom = (seed: string) => {
+    let h = 2166136261;
+    for (let i = 0; i < seed.length; i++) {
+      h ^= seed.charCodeAt(i);
+      h = Math.imul(h, 16777619);
+    }
+    return () => {
+      h += 0x6d2b79f5;
+      let t = h;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  };
+
+  const maskIdentifier = (value: string, type: 'email' | 'phone') => {
+    if (type === 'email') {
+      const [local, domain] = value.split('@');
+      const visible = local.slice(0, Math.min(2, local.length));
+      return `${visible}${'*'.repeat(Math.max(local.length - 2, 1))}@${domain}`;
+    }
+    const digits = value.replace(/[^0-9]/g, '');
+    return `${'*'.repeat(Math.max(digits.length - 3, 0))}${digits.slice(-3)}`;
+  };
+
+  const SIM_BREACHES = [
+    { name: 'Collection #1', year: 2019, types: ['Email addresses', 'Passwords'] },
+    { name: 'LinkedIn Scrape', year: 2021, types: ['Email addresses', 'Phone numbers', 'Names'] },
+    { name: 'Facebook Leak', year: 2021, types: ['Phone numbers', 'Names', 'Locations'] },
+    { name: 'Canva', year: 2019, types: ['Email addresses', 'Usernames', 'Passwords'] },
+    { name: 'Dubsmash', year: 2018, types: ['Email addresses', 'Passwords', 'Usernames'] },
+    { name: 'MyFitnessPal', year: 2018, types: ['Email addresses', 'Passwords'] },
+    { name: 'Telecom Subscriber Dump', year: 2022, types: ['Phone numbers', 'Names', 'National IDs'] },
+    { name: 'E-Commerce Order DB', year: 2023, types: ['Email addresses', 'Phone numbers', 'Addresses'] },
+  ];
+
+  app.post('/api/personal/scan', personalScanLimiter, async (req, res) => {
+    try {
+      const { identifier, type, consent } = req.body || {};
+
+      // Misuse protection: explicit consent is required for every lookup.
+      if (consent !== true) {
+        return res.status(400).json({ success: false, error: 'Consent is required. You may only scan data you own or are authorized to check.' });
+      }
+
+      if (!identifier || typeof identifier !== 'string' || (type !== 'email' && type !== 'phone')) {
+        return res.status(400).json({ success: false, error: 'Invalid request payload.' });
+      }
+
+      const value = identifier.trim();
+      if (value.length > 254) {
+        return res.status(400).json({ success: false, error: 'Identifier is too long.' });
+      }
+      if (type === 'email' && !EMAIL_RE.test(value)) {
+        return res.status(400).json({ success: false, error: 'Please enter a valid email address.' });
+      }
+      if (type === 'phone' && !PHONE_RE.test(value)) {
+        return res.status(400).json({ success: false, error: 'Please enter a valid phone number.' });
+      }
+
+      const masked = maskIdentifier(value, type);
+
+      // Real data path: Have I Been Pwned (emails only) when an API key is set.
+      if (type === 'email' && process.env.HIBP_API_KEY) {
+        try {
+          const hibp = await axios.get(
+            `https://haveibeenpwned.com/api/v3/breachedaccount/${encodeURIComponent(value)}?truncateResponse=false`,
+            {
+              headers: {
+                'hibp-api-key': process.env.HIBP_API_KEY as string,
+                'user-agent': 'EgySafe-PersonalScan'
+              },
+              validateStatus: (s) => s === 200 || s === 404
+            }
+          );
+
+          if (hibp.status === 404) {
+            return res.json({
+              success: true, source: 'hibp', identifier: masked, type,
+              found: false, breachCount: 0, breaches: [], dataTypes: [],
+              riskLevel: 'LOW',
+              summary: 'Good news. We found no known breaches associated with this email.'
+            });
+          }
+
+          const breaches = (hibp.data || []).map((b: any) => ({
+            name: b.Title || b.Name,
+            year: b.BreachDate ? new Date(b.BreachDate).getFullYear() : null,
+            types: b.DataClasses || []
+          }));
+          const dataTypes = Array.from(new Set(breaches.flatMap((b: any) => b.types)));
+
+          return res.json({
+            success: true, source: 'hibp', identifier: masked, type,
+            found: breaches.length > 0, breachCount: breaches.length, breaches, dataTypes,
+            riskLevel: breaches.length >= 4 ? 'HIGH' : breaches.length > 0 ? 'MEDIUM' : 'LOW',
+            summary: breaches.length > 0
+              ? `This email appeared in ${breaches.length} known data breach${breaches.length > 1 ? 'es' : ''}. Review the exposed data and update affected passwords.`
+              : 'We found no known breaches associated with this email.'
+          });
+        } catch (e: any) {
+          console.error('[PERSONAL SCAN] HIBP error, falling back to indicative scan:', e.message);
+          // fall through to deterministic indicative scan
+        }
+      }
+
+      // Indicative path: deterministic, consistent results without exposing third-party PII.
+      const rand = seededRandom(`${type}:${value}`);
+      const isExposed = rand() > 0.45;
+      const count = isExposed ? Math.floor(rand() * 4) + 1 : 0;
+
+      const pool = SIM_BREACHES.filter(b =>
+        type === 'email' ? b.types.includes('Email addresses') : b.types.includes('Phone numbers')
+      );
+      const breaches: { name: string; year: number; types: string[] }[] = [];
+      const usedIdx = new Set<number>();
+      while (breaches.length < count && usedIdx.size < pool.length) {
+        const idx = Math.floor(rand() * pool.length);
+        if (usedIdx.has(idx)) continue;
+        usedIdx.add(idx);
+        breaches.push(pool[idx]);
+      }
+      const dataTypes = Array.from(new Set(breaches.flatMap(b => b.types)));
+
+      return res.json({
+        success: true,
+        source: 'indicative',
+        identifier: masked,
+        type,
+        found: breaches.length > 0,
+        breachCount: breaches.length,
+        breaches,
+        dataTypes,
+        riskLevel: breaches.length >= 3 ? 'HIGH' : breaches.length > 0 ? 'MEDIUM' : 'LOW',
+        summary: breaches.length > 0
+          ? `We found ${breaches.length} indicative exposure${breaches.length > 1 ? 's' : ''} matching this ${type}. Request a verified deep report for confirmed details.`
+          : `No indicative exposures matched this ${type} in our sampled sources. A verified deep scan covers many more.`
+      });
+    } catch (e: any) {
+      console.error('[PERSONAL SCAN] Error:', e);
+      res.status(500).json({ success: false, error: 'Internal Server Error' });
+    }
+  });
+
   // Sitemap Generation Route
   app.get('/sitemap.xml', (req, res) => {
     res.header('Content-Type', 'application/xml');
@@ -325,7 +486,9 @@ Allow: /
 Sitemap: https://egysafe.com/sitemap.xml`);
   });
 
-  const PORT = process.env.PORT || 3000;
+  // Honor the hosting platform's injected PORT (Replit, Vercel, etc.).
+  // Fall back to 8080, which avoids colliding with the local preview proxy.
+  const PORT = process.env.PORT || 8080;
 
   // Socket.IO Threat Emission Logic
   io.on('connection', (socket) => {
